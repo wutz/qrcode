@@ -284,7 +284,6 @@ function getHtmlPage(): string {
       display: flex;
       justify-content: center;
       gap: 12px;
-      margin-bottom: 40px;
     }
 
     .control-btn {
@@ -646,6 +645,10 @@ function getHtmlPage(): string {
       font-size: 13px;
     }
 
+    footer .controls {
+      margin-bottom: 0;
+    }
+
     footer a {
       color: var(--text-secondary);
       text-decoration: none;
@@ -664,21 +667,6 @@ function getHtmlPage(): string {
       <h1 data-i18n="title">Image QR Code Generator</h1>
       <p class="subtitle" data-i18n="subtitle">Upload an image and generate a shareable QR code instantly</p>
     </header>
-
-    <div class="controls">
-      <button class="control-btn" id="themeToggle" title="Toggle theme">
-        <span class="control-icon" id="themeIcon">🌙</span>
-        <span data-i18n="theme">Theme</span>
-      </button>
-      <div class="lang-select">
-        <select id="langSelect">
-          <option value="en">English</option>
-          <option value="zh">简体中文</option>
-          <option value="ja">日本語</option>
-          <option value="ko">한국어</option>
-        </select>
-      </div>
-    </div>
 
     <div class="upload-card" id="uploadCard">
       <span class="upload-icon">📤</span>
@@ -734,7 +722,20 @@ function getHtmlPage(): string {
     </div>
 
     <footer>
-      <p data-i18n="footer">Built with Cloudflare Workers + R2</p>
+      <div class="controls">
+        <button class="control-btn" id="themeToggle" title="Toggle theme">
+          <span class="control-icon" id="themeIcon">🌙</span>
+          <span data-i18n="theme">Theme</span>
+        </button>
+        <div class="lang-select">
+          <select id="langSelect">
+            <option value="en">English</option>
+            <option value="zh">简体中文</option>
+            <option value="ja">日本語</option>
+            <option value="ko">한국어</option>
+          </select>
+        </div>
+      </div>
     </footer>
   </div>
 
@@ -756,7 +757,6 @@ function getHtmlPage(): string {
         downloadQr: 'Download QR',
         copyUrl: 'Copy URL',
         uploadAnother: 'Upload Another',
-        footer: 'Built with Cloudflare Workers + R2',
         uploading: 'Uploading...',
         copySuccess: 'Link copied to clipboard',
         copyError: 'Copy failed, please copy manually',
@@ -775,7 +775,6 @@ function getHtmlPage(): string {
         downloadQr: '下载二维码',
         copyUrl: '复制链接',
         uploadAnother: '再传一张',
-        footer: '基于 Cloudflare Workers + R2 构建',
         uploading: '上传中...',
         copySuccess: '链接已复制到剪贴板',
         copyError: '复制失败，请手动复制',
@@ -794,7 +793,6 @@ function getHtmlPage(): string {
         downloadQr: 'QRコードをダウンロード',
         copyUrl: 'URLをコピー',
         uploadAnother: '別の画像をアップロード',
-        footer: 'Cloudflare Workers + R2で構築',
         uploading: 'アップロード中...',
         copySuccess: 'リンクをクリップボードにコピーしました',
         copyError: 'コピーに失敗しました',
@@ -813,7 +811,6 @@ function getHtmlPage(): string {
         downloadQr: 'QR코드 다운로드',
         copyUrl: 'URL 복사',
         uploadAnother: '다른 이미지 업로드',
-        footer: 'Cloudflare Workers + R2로 구축',
         uploading: '업로드 중...',
         copySuccess: '링크가 클립보드에 복사되었습니다',
         copyError: '복사 실패',
