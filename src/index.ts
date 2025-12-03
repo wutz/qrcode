@@ -818,8 +818,47 @@ function getHtmlPage(): string {
       },
     };
 
-    let currentLang = localStorage.getItem('lang') || 'en';
-    let currentTheme = localStorage.getItem('theme') || 'light';
+    // Detect browser language
+    function detectBrowserLanguage() {
+      const browserLang = navigator.language || navigator.languages?.[0] || 'en';
+      const langCode = browserLang.toLowerCase().split('-')[0];
+      
+      // Map browser language to supported languages
+      const langMap = {
+        'zh': 'zh',
+        'ja': 'ja',
+        'ko': 'ko',
+        'en': 'en',
+      };
+      
+      return langMap[langCode] || 'en';
+    }
+
+    // Detect system theme preference
+    function detectSystemTheme() {
+      if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        return 'dark';
+      }
+      return 'light';
+    }
+
+    // Get initial language (prefer saved, fallback to browser)
+    let currentLang = localStorage.getItem('lang');
+    if (!currentLang) {
+      currentLang = detectBrowserLanguage();
+      localStorage.setItem('lang', currentLang);
+    }
+
+    // Get initial theme (prefer manual setting, fallback to system)
+    const isThemeManual = localStorage.getItem('theme-manual') === 'true';
+    let currentTheme;
+    if (isThemeManual) {
+      // User has manually set theme, use saved value
+      currentTheme = localStorage.getItem('theme') || 'light';
+    } else {
+      // Auto-detect from system, don't save to localStorage
+      currentTheme = detectSystemTheme();
+    }
 
     // Initialize
     function init() {
@@ -830,6 +869,28 @@ function getHtmlPage(): string {
       // Set language
       document.getElementById('langSelect').value = currentLang;
       updateLanguage();
+
+      // Listen for system theme changes (only if user hasn't manually set theme)
+      if (!isThemeManual) {
+        const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+        const handleThemeChange = (e) => {
+          // Only update if user hasn't manually set theme
+          if (localStorage.getItem('theme-manual') !== 'true') {
+            currentTheme = e.matches ? 'dark' : 'light';
+            document.documentElement.setAttribute('data-theme', currentTheme);
+            updateThemeIcon();
+            // Don't save to localStorage to keep it auto-following system
+          }
+        };
+        
+        // Modern browsers
+        if (mediaQuery.addEventListener) {
+          mediaQuery.addEventListener('change', handleThemeChange);
+        } else {
+          // Fallback for older browsers
+          mediaQuery.addListener(handleThemeChange);
+        }
+      }
 
       // Bind events
       bindEvents();
@@ -878,6 +939,8 @@ function getHtmlPage(): string {
         document.documentElement.setAttribute('data-theme', currentTheme);
         localStorage.setItem('theme', currentTheme);
         updateThemeIcon();
+        // Mark that user has manually set theme (stop auto-detection)
+        localStorage.setItem('theme-manual', 'true');
       });
 
       // Language switch
