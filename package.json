@@ -1,22 +1,21 @@
 {
-  "name": "qrcode-generator",
-  "version": "1.0.0",
-  "description": "图片上传生成二维码 - Cloudflare Workers + R2",
-  "type": "module",
-  "scripts": {
-    "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
-    "tail": "wrangler tail"
-  },
-  "dependencies": {
-    "hono": "^4.6.0",
-    "qrcode": "^1.5.4"
-  },
-  "devDependencies": {
-    "@cloudflare/workers-types": "^4.20241127.0",
-    "@types/qrcode": "^1.5.5",
-    "typescript": "^5.7.2",
-    "wrangler": "^3.99.0"
-  }
+    "name": "qrcode-generator",
+    "version": "1.0.0",
+    "description": "Image upload and QR code generation - Cloudflare Workers + R2",
+    "type": "module",
+    "scripts": {
+        "dev": "wrangler dev",
+        "deploy": "wrangler deploy",
+        "tail": "wrangler tail"
+    },
+    "dependencies": {
+        "hono": "^4.6.0",
+        "qrcode": "^1.5.4"
+    },
+    "devDependencies": {
+        "@cloudflare/workers-types": "^4.20241127.0",
+        "@types/qrcode": "^1.5.5",
+        "typescript": "^5.7.2",
+        "wrangler": "^3.99.0"
+    }
 }
-

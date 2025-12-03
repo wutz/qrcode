@@ -3,173 +3,173 @@ import { cors } from 'hono/cors';
 import QRCode from 'qrcode';
 
 type Bindings = {
-  R2_BUCKET: R2Bucket;
+    R2_BUCKET: R2Bucket;
 };
 
 const app = new Hono<{ Bindings: Bindings }>();
 
-// CORS 中间件
+// CORS middleware
 app.use('*', cors());
 
-// 生成唯一文件名
+// Generate unique file name
 function generateFileName(originalName: string): string {
-  const timestamp = Date.now();
-  const random = Math.random().toString(36).substring(2, 8);
-  const ext = originalName.split('.').pop() || 'png';
-  return `${timestamp}-${random}.${ext}`;
+    const timestamp = Date.now();
+    const random = Math.random().toString(36).substring(2, 8);
+    const ext = originalName.split('.').pop() || 'png';
+    return `${timestamp}-${random}.${ext}`;
 }
 
-// 获取文件的 MIME 类型
+// Get file MIME type
 function getMimeType(fileName: string): string {
-  const ext = fileName.split('.').pop()?.toLowerCase();
-  const mimeTypes: Record<string, string> = {
-    'jpg': 'image/jpeg',
-    'jpeg': 'image/jpeg',
-    'png': 'image/png',
-    'gif': 'image/gif',
-    'webp': 'image/webp',
-    'svg': 'image/svg+xml',
-    'bmp': 'image/bmp',
-  };
-  return mimeTypes[ext || ''] || 'application/octet-stream';
+    const ext = fileName.split('.').pop()?.toLowerCase();
+    const mimeTypes: Record<string, string> = {
+        'jpg': 'image/jpeg',
+        'jpeg': 'image/jpeg',
+        'png': 'image/png',
+        'gif': 'image/gif',
+        'webp': 'image/webp',
+        'svg': 'image/svg+xml',
+        'bmp': 'image/bmp',
+    };
+    return mimeTypes[ext || ''] || 'application/octet-stream';
 }
 
-// 上传图片并生成二维码
+// Upload image and generate QR code
 app.post('/api/upload', async (c) => {
-  try {
-    const formData = await c.req.formData();
-    const file = formData.get('file') as File | null;
+    try {
+        const formData = await c.req.formData();
+        const file = formData.get('file') as File | null;
 
-    if (!file) {
-      return c.json({ error: '请选择要上传的图片' }, 400);
+        if (!file) {
+            return c.json({ error: 'Please select an image to upload' }, 400);
+        }
+
+        // Validate file type
+        const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml', 'image/bmp'];
+        if (!allowedTypes.includes(file.type)) {
+            return c.json({ error: 'Unsupported file type, please upload an image file' }, 400);
+        }
+
+        // Validate file size (max 10MB)
+        const maxSize = 10 * 1024 * 1024;
+        if (file.size > maxSize) {
+            return c.json({ error: 'File size cannot exceed 10MB' }, 400);
+        }
+
+        // Generate file name and upload to R2
+        const fileName = generateFileName(file.name);
+        const arrayBuffer = await file.arrayBuffer();
+
+        await c.env.R2_BUCKET.put(fileName, arrayBuffer, {
+            httpMetadata: {
+                contentType: file.type,
+            },
+        });
+
+        // Build public access URL
+        // Note: You need to configure public access for the R2 bucket in Cloudflare Dashboard
+        // Or use Workers to proxy access
+        const url = c.req.url;
+        const baseUrl = new URL(url).origin;
+        const publicUrl = `${baseUrl}/images/${fileName}`;
+
+        // Generate QR code (PNG format Data URL)
+        const qrCodeDataUrl = await QRCode.toDataURL(publicUrl, {
+            width: 300,
+            margin: 2,
+            color: {
+                dark: '#000000',
+                light: '#ffffff',
+            },
+        });
+
+        return c.json({
+            success: true,
+            imageUrl: publicUrl,
+            qrCode: qrCodeDataUrl,
+            fileName: fileName,
+        });
+    } catch (error) {
+        console.error('Upload error:', error);
+        return c.json({ error: 'Upload failed, please try again' }, 500);
     }
-
-    // 验证文件类型
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml', 'image/bmp'];
-    if (!allowedTypes.includes(file.type)) {
-      return c.json({ error: '不支持的文件类型，请上传图片文件' }, 400);
-    }
-
-    // 验证文件大小 (最大 10MB)
-    const maxSize = 10 * 1024 * 1024;
-    if (file.size > maxSize) {
-      return c.json({ error: '文件大小不能超过 10MB' }, 400);
-    }
-
-    // 生成文件名并上传到 R2
-    const fileName = generateFileName(file.name);
-    const arrayBuffer = await file.arrayBuffer();
-
-    await c.env.R2_BUCKET.put(fileName, arrayBuffer, {
-      httpMetadata: {
-        contentType: file.type,
-      },
-    });
-
-    // 构建公共访问 URL
-    // 注意：需要在 Cloudflare Dashboard 中为 R2 存储桶配置公共访问
-    // 或者使用 Workers 来代理访问
-    const url = c.req.url;
-    const baseUrl = new URL(url).origin;
-    const publicUrl = `${baseUrl}/images/${fileName}`;
-
-    // 生成二维码 (PNG 格式的 Data URL)
-    const qrCodeDataUrl = await QRCode.toDataURL(publicUrl, {
-      width: 300,
-      margin: 2,
-      color: {
-        dark: '#000000',
-        light: '#ffffff',
-      },
-    });
-
-    return c.json({
-      success: true,
-      imageUrl: publicUrl,
-      qrCode: qrCodeDataUrl,
-      fileName: fileName,
-    });
-  } catch (error) {
-    console.error('Upload error:', error);
-    return c.json({ error: '上传失败，请重试' }, 500);
-  }
 });
 
-// 代理访问 R2 中的图片
+// Proxy access to images in R2
 app.get('/images/:fileName', async (c) => {
-  const fileName = c.req.param('fileName');
+    const fileName = c.req.param('fileName');
 
-  try {
-    const object = await c.env.R2_BUCKET.get(fileName);
+    try {
+        const object = await c.env.R2_BUCKET.get(fileName);
 
-    if (!object) {
-      return c.json({ error: '图片不存在' }, 404);
+        if (!object) {
+            return c.json({ error: 'Image not found' }, 404);
+        }
+
+        const headers = new Headers();
+        headers.set('Content-Type', object.httpMetadata?.contentType || getMimeType(fileName));
+        headers.set('Cache-Control', 'public, max-age=31536000'); // Cache for one year
+
+        return new Response(object.body, { headers });
+    } catch (error) {
+        console.error('Get image error:', error);
+        return c.json({ error: 'Failed to get image' }, 500);
     }
-
-    const headers = new Headers();
-    headers.set('Content-Type', object.httpMetadata?.contentType || getMimeType(fileName));
-    headers.set('Cache-Control', 'public, max-age=31536000'); // 缓存一年
-
-    return new Response(object.body, { headers });
-  } catch (error) {
-    console.error('Get image error:', error);
-    return c.json({ error: '获取图片失败' }, 500);
-  }
 });
 
-// 仅生成二维码 (用于自定义 URL)
+// Generate QR code only (for custom URL)
 app.post('/api/qrcode', async (c) => {
-  try {
-    const body = await c.req.json();
-    const { url, size = 300, darkColor = '#000000', lightColor = '#ffffff' } = body;
+    try {
+        const body = await c.req.json();
+        const { url, size = 300, darkColor = '#000000', lightColor = '#ffffff' } = body;
 
-    if (!url) {
-      return c.json({ error: '请提供 URL' }, 400);
+        if (!url) {
+            return c.json({ error: 'Please provide a URL' }, 400);
+        }
+
+        const qrCodeDataUrl = await QRCode.toDataURL(url, {
+            width: size,
+            margin: 2,
+            color: {
+                dark: darkColor,
+                light: lightColor,
+            },
+        });
+
+        return c.json({
+            success: true,
+            qrCode: qrCodeDataUrl,
+        });
+    } catch (error) {
+        console.error('QR Code error:', error);
+        return c.json({ error: 'Failed to generate QR code' }, 500);
     }
-
-    const qrCodeDataUrl = await QRCode.toDataURL(url, {
-      width: size,
-      margin: 2,
-      color: {
-        dark: darkColor,
-        light: lightColor,
-      },
-    });
-
-    return c.json({
-      success: true,
-      qrCode: qrCodeDataUrl,
-    });
-  } catch (error) {
-    console.error('QR Code error:', error);
-    return c.json({ error: '生成二维码失败' }, 500);
-  }
 });
 
-// 前端静态页面
+// Frontend static page
 app.get('/', (c) => {
-  return c.html(getHtmlPage());
+    return c.html(getHtmlPage());
 });
 
-// 健康检查
+// Health check
 app.get('/health', (c) => {
-  return c.json({ status: 'ok', timestamp: new Date().toISOString() });
+    return c.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// 获取前端 HTML 页面
+// Get frontend HTML page
 function getHtmlPage(): string {
-  return `<!DOCTYPE html>
-<html lang="zh-CN" data-theme="light">
+    return `<!DOCTYPE html>
+<html lang="en" data-theme="light">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>图片二维码生成器</title>
+  <title>Image QR Code Generator</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
     :root {
-      /* 亮色主题 - 温暖米色调 */
+      /* Light theme - Warm beige tones */
       --bg-primary: #faf8f5;
       --bg-secondary: #fff;
       --bg-tertiary: #f5f2ed;
@@ -193,7 +193,7 @@ function getHtmlPage(): string {
     }
 
     [data-theme="dark"] {
-      /* 暗色主题 - 深邃墨绿调 */
+      /* Dark theme - Deep dark green tones */
       --bg-primary: #0f1612;
       --bg-secondary: #1a211c;
       --bg-tertiary: #242d27;
@@ -227,7 +227,7 @@ function getHtmlPage(): string {
       transition: background var(--transition), color var(--transition);
     }
 
-    /* 背景纹理 */
+    /* Background texture */
     body::before {
       content: '';
       position: fixed;
@@ -248,7 +248,7 @@ function getHtmlPage(): string {
       padding: 48px 24px;
     }
 
-    /* 头部 */
+    /* Header */
     header {
       text-align: center;
       margin-bottom: 48px;
@@ -279,7 +279,7 @@ function getHtmlPage(): string {
       font-weight: 400;
     }
 
-    /* 控制栏 */
+    /* Control bar */
     .controls {
       display: flex;
       justify-content: center;
@@ -318,7 +318,7 @@ function getHtmlPage(): string {
       font-size: 16px;
     }
 
-    /* 语言选择下拉 */
+    /* Language selection dropdown */
     .lang-select {
       position: relative;
     }
@@ -352,7 +352,7 @@ function getHtmlPage(): string {
       font-size: 12px;
     }
 
-    /* 上传区域 */
+    /* Upload area */
     .upload-card {
       background: var(--bg-secondary);
       border: 2px dashed var(--border);
@@ -420,7 +420,7 @@ function getHtmlPage(): string {
       cursor: pointer;
     }
 
-    /* 进度条 */
+    /* Progress bar */
     .progress-bar {
       height: 4px;
       background: var(--bg-tertiary);
@@ -452,7 +452,7 @@ function getHtmlPage(): string {
       100% { transform: translateX(400%); }
     }
 
-    /* 结果区域 */
+    /* Result area */
     .result-card {
       background: var(--bg-secondary);
       border: 1px solid var(--border);
@@ -540,7 +540,7 @@ function getHtmlPage(): string {
       box-shadow: var(--shadow-md);
     }
 
-    /* URL 显示 */
+    /* URL display */
     .url-display {
       margin-top: 24px;
       padding: 16px;
@@ -564,7 +564,7 @@ function getHtmlPage(): string {
       line-height: 1.5;
     }
 
-    /* 按钮 */
+    /* Buttons */
     .btn-group {
       display: flex;
       gap: 12px;
@@ -609,7 +609,7 @@ function getHtmlPage(): string {
       box-shadow: var(--shadow-sm);
     }
 
-    /* Toast 消息 */
+    /* Toast message */
     .toast {
       position: fixed;
       bottom: 24px;
@@ -636,7 +636,7 @@ function getHtmlPage(): string {
       color: #fff;
     }
 
-    /* 页脚 */
+    /* Footer */
     footer {
       text-align: center;
       margin-top: 64px;
@@ -661,19 +661,19 @@ function getHtmlPage(): string {
   <div class="container">
     <header>
       <span class="logo">📸</span>
-      <h1 data-i18n="title">图片二维码生成器</h1>
-      <p class="subtitle" data-i18n="subtitle">上传图片，即刻生成可分享的二维码</p>
+      <h1 data-i18n="title">Image QR Code Generator</h1>
+      <p class="subtitle" data-i18n="subtitle">Upload an image and generate a shareable QR code instantly</p>
     </header>
 
     <div class="controls">
-      <button class="control-btn" id="themeToggle" title="切换主题">
+      <button class="control-btn" id="themeToggle" title="Toggle theme">
         <span class="control-icon" id="themeIcon">🌙</span>
-        <span data-i18n="theme">主题</span>
+        <span data-i18n="theme">Theme</span>
       </button>
       <div class="lang-select">
         <select id="langSelect">
-          <option value="zh">简体中文</option>
           <option value="en">English</option>
+          <option value="zh">简体中文</option>
           <option value="ja">日本語</option>
           <option value="ko">한국어</option>
         </select>
@@ -682,8 +682,8 @@ function getHtmlPage(): string {
 
     <div class="upload-card" id="uploadCard">
       <span class="upload-icon">📤</span>
-      <h2 class="upload-title" data-i18n="uploadTitle">点击或拖拽上传图片</h2>
-      <p class="upload-hint" data-i18n="uploadHint">支持 JPG、PNG、GIF、WebP 等格式，最大 10MB</p>
+      <h2 class="upload-title" data-i18n="uploadTitle">Click or drag to upload image</h2>
+      <p class="upload-hint" data-i18n="uploadHint">Supports JPG, PNG, GIF, WebP, max 10MB</p>
       <div class="upload-formats">
         <span class="format-tag">JPG</span>
         <span class="format-tag">PNG</span>
@@ -700,68 +700,49 @@ function getHtmlPage(): string {
       <div class="result-header">
         <span class="success-badge">
           <span>✓</span>
-          <span data-i18n="uploadSuccess">上传成功</span>
+          <span data-i18n="uploadSuccess">Upload successful</span>
         </span>
       </div>
       <div class="result-content">
         <div class="result-section">
-          <div class="result-label" data-i18n="preview">预览</div>
+          <div class="result-label" data-i18n="preview">Preview</div>
           <img class="preview-image" id="previewImage" alt="Preview">
         </div>
         <div class="result-section">
-          <div class="result-label" data-i18n="qrcode">二维码</div>
+          <div class="result-label" data-i18n="qrcode">QR Code</div>
           <img class="qr-image" id="qrImage" alt="QR Code">
         </div>
       </div>
       <div class="url-display">
-        <div class="url-label" data-i18n="imageUrl">图片链接</div>
+        <div class="url-label" data-i18n="imageUrl">Image URL</div>
         <div class="url-text" id="imageUrl"></div>
       </div>
       <div class="btn-group">
         <button class="btn btn-primary" id="downloadQr">
           <span>⬇</span>
-          <span data-i18n="downloadQr">下载二维码</span>
+          <span data-i18n="downloadQr">Download QR</span>
         </button>
         <button class="btn btn-secondary" id="copyUrl">
           <span>📋</span>
-          <span data-i18n="copyUrl">复制链接</span>
+          <span data-i18n="copyUrl">Copy URL</span>
         </button>
         <button class="btn btn-secondary" id="uploadAnother">
           <span>🔄</span>
-          <span data-i18n="uploadAnother">再传一张</span>
+          <span data-i18n="uploadAnother">Upload Another</span>
         </button>
       </div>
     </div>
 
     <footer>
-      <p data-i18n="footer">基于 Cloudflare Workers + R2 构建</p>
+      <p data-i18n="footer">Built with Cloudflare Workers + R2</p>
     </footer>
   </div>
 
   <div class="toast" id="toast"></div>
 
   <script>
-    // 多语言支持
+    // Multi-language support
     const i18n = {
-      zh: {
-        title: '图片二维码生成器',
-        subtitle: '上传图片，即刻生成可分享的二维码',
-        theme: '主题',
-        uploadTitle: '点击或拖拽上传图片',
-        uploadHint: '支持 JPG、PNG、GIF、WebP 等格式，最大 10MB',
-        uploadSuccess: '上传成功',
-        preview: '预览',
-        qrcode: '二维码',
-        imageUrl: '图片链接',
-        downloadQr: '下载二维码',
-        copyUrl: '复制链接',
-        uploadAnother: '再传一张',
-        footer: '基于 Cloudflare Workers + R2 构建',
-        uploading: '上传中...',
-        copySuccess: '链接已复制到剪贴板',
-        copyError: '复制失败，请手动复制',
-        uploadError: '上传失败，请重试',
-      },
       en: {
         title: 'Image QR Code Generator',
         subtitle: 'Upload an image and generate a shareable QR code instantly',
@@ -780,6 +761,25 @@ function getHtmlPage(): string {
         copySuccess: 'Link copied to clipboard',
         copyError: 'Copy failed, please copy manually',
         uploadError: 'Upload failed, please try again',
+      },
+      zh: {
+        title: '图片二维码生成器',
+        subtitle: '上传图片，即刻生成可分享的二维码',
+        theme: '主题',
+        uploadTitle: '点击或拖拽上传图片',
+        uploadHint: '支持 JPG、PNG、GIF、WebP 等格式，最大 10MB',
+        uploadSuccess: '上传成功',
+        preview: '预览',
+        qrcode: '二维码',
+        imageUrl: '图片链接',
+        downloadQr: '下载二维码',
+        copyUrl: '复制链接',
+        uploadAnother: '再传一张',
+        footer: '基于 Cloudflare Workers + R2 构建',
+        uploading: '上传中...',
+        copySuccess: '链接已复制到剪贴板',
+        copyError: '复制失败，请手动复制',
+        uploadError: '上传失败，请重试',
       },
       ja: {
         title: '画像QRコード生成',
@@ -821,24 +821,24 @@ function getHtmlPage(): string {
       },
     };
 
-    let currentLang = localStorage.getItem('lang') || 'zh';
+    let currentLang = localStorage.getItem('lang') || 'en';
     let currentTheme = localStorage.getItem('theme') || 'light';
 
-    // 初始化
+    // Initialize
     function init() {
-      // 设置主题
+      // Set theme
       document.documentElement.setAttribute('data-theme', currentTheme);
       updateThemeIcon();
 
-      // 设置语言
+      // Set language
       document.getElementById('langSelect').value = currentLang;
       updateLanguage();
 
-      // 绑定事件
+      // Bind events
       bindEvents();
     }
 
-    // 更新语言
+    // Update language
     function updateLanguage() {
       const texts = i18n[currentLang];
       document.querySelectorAll('[data-i18n]').forEach(el => {
@@ -850,13 +850,13 @@ function getHtmlPage(): string {
       document.documentElement.lang = currentLang === 'zh' ? 'zh-CN' : currentLang;
     }
 
-    // 更新主题图标
+    // Update theme icon
     function updateThemeIcon() {
       const icon = document.getElementById('themeIcon');
       icon.textContent = currentTheme === 'dark' ? '☀️' : '🌙';
     }
 
-    // 显示 Toast
+    // Show Toast
     function showToast(message, isError = false) {
       const toast = document.getElementById('toast');
       toast.textContent = message;
@@ -865,7 +865,7 @@ function getHtmlPage(): string {
       setTimeout(() => toast.classList.remove('show'), 3000);
     }
 
-    // 绑定事件
+    // Bind events
     function bindEvents() {
       const uploadCard = document.getElementById('uploadCard');
       const fileInput = document.getElementById('fileInput');
@@ -875,7 +875,7 @@ function getHtmlPage(): string {
       const copyUrl = document.getElementById('copyUrl');
       const uploadAnother = document.getElementById('uploadAnother');
 
-      // 主题切换
+      // Theme toggle
       themeToggle.addEventListener('click', () => {
         currentTheme = currentTheme === 'light' ? 'dark' : 'light';
         document.documentElement.setAttribute('data-theme', currentTheme);
@@ -883,14 +883,14 @@ function getHtmlPage(): string {
         updateThemeIcon();
       });
 
-      // 语言切换
+      // Language switch
       langSelect.addEventListener('change', (e) => {
         currentLang = e.target.value;
         localStorage.setItem('lang', currentLang);
         updateLanguage();
       });
 
-      // 拖拽上传
+      // Drag and drop upload
       uploadCard.addEventListener('dragover', (e) => {
         e.preventDefault();
         uploadCard.classList.add('dragover');
@@ -909,14 +909,14 @@ function getHtmlPage(): string {
         }
       });
 
-      // 文件选择
+      // File selection
       fileInput.addEventListener('change', (e) => {
         if (e.target.files.length > 0) {
           handleFile(e.target.files[0]);
         }
       });
 
-      // 下载二维码
+      // Download QR code
       downloadQr.addEventListener('click', () => {
         const qrImage = document.getElementById('qrImage');
         const link = document.createElement('a');
@@ -925,7 +925,7 @@ function getHtmlPage(): string {
         link.click();
       });
 
-      // 复制链接
+      // Copy link
       copyUrl.addEventListener('click', async () => {
         const url = document.getElementById('imageUrl').textContent;
         try {
@@ -936,19 +936,19 @@ function getHtmlPage(): string {
         }
       });
 
-      // 再传一张
+      // Upload another
       uploadAnother.addEventListener('click', () => {
         document.getElementById('resultCard').classList.remove('show');
         fileInput.value = '';
       });
     }
 
-    // 处理文件上传
+    // Handle file upload
     async function handleFile(file) {
       const progressBar = document.getElementById('progressBar');
       const resultCard = document.getElementById('resultCard');
 
-      // 显示进度条
+      // Show progress bar
       progressBar.classList.add('show', 'indeterminate');
       resultCard.classList.remove('show');
 
@@ -967,7 +967,7 @@ function getHtmlPage(): string {
           throw new Error(data.error || i18n[currentLang].uploadError);
         }
 
-        // 显示结果
+        // Show result
         document.getElementById('previewImage').src = data.imageUrl;
         document.getElementById('qrImage').src = data.qrCode;
         document.getElementById('imageUrl').textContent = data.imageUrl;
@@ -981,7 +981,7 @@ function getHtmlPage(): string {
       }
     }
 
-    // 启动应用
+    // Start application
     init();
   </script>
 </body>

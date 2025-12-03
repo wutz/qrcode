@@ -1,72 +1,72 @@
-# 📸 图片二维码生成器
+# 📸 Image QR Code Generator
 
-基于 Cloudflare Workers + R2 的图片上传和二维码生成服务。
+Image upload and QR code generation service based on Cloudflare Workers + R2.
 
-## ✨ 功能特性
+## ✨ Features
 
-- 🖼️ **图片上传** - 支持 JPG、PNG、GIF、WebP 等常见格式
-- 📱 **二维码生成** - 自动生成图片链接的二维码
-- 🌐 **多语言支持** - 中文、英文、日文、韩文
-- 🎨 **主题切换** - 明亮/暗黑双主题
-- ⚡ **极速响应** - 部署在 Cloudflare 全球边缘网络
-- 💰 **低成本** - R2 无出口流量费用
+- 🖼️ **Image Upload** - Supports common formats like JPG, PNG, GIF, WebP
+- 📱 **QR Code Generation** - Automatically generates QR codes for image links
+- 🌐 **Multi-language Support** - Chinese, English, Japanese, Korean
+- 🎨 **Theme Toggle** - Light/Dark dual themes
+- ⚡ **Fast Response** - Deployed on Cloudflare's global edge network
+- 💰 **Low Cost** - R2 has no egress fees
 
-## 🚀 快速开始
+## 🚀 Quick Start
 
-### 前置要求
+### Prerequisites
 
 - Node.js 18+
-- Cloudflare 账号
+- Cloudflare account
 - Wrangler CLI
 
-### 安装依赖
+### Install Dependencies
 
 ```bash
 npm install
 ```
 
-### 创建 R2 存储桶
+### Create R2 Bucket
 
-1. 登录 [Cloudflare Dashboard](https://dash.cloudflare.com/)
-2. 进入 R2 存储
-3. 创建名为 `qrcode-images` 的存储桶
+1. Log in to [Cloudflare Dashboard](https://dash.cloudflare.com/)
+2. Go to R2 Storage
+3. Create a bucket named `qrcode-images`
 
-### 本地开发
+### Local Development
 
 ```bash
 npm run dev
 ```
 
-访问 http://localhost:8787
+Visit http://localhost:8787
 
-### 部署到 Cloudflare
+### Deploy to Cloudflare
 
 ```bash
 npm run deploy
 ```
 
-## 📁 项目结构
+## 📁 Project Structure
 
 ```
 qrcode/
 ├── src/
-│   └── index.ts      # Worker 主文件 (API + 前端)
-├── package.json      # 依赖配置
-├── wrangler.toml     # Cloudflare 配置
-├── tsconfig.json     # TypeScript 配置
-└── README.md         # 项目文档
+│   └── index.ts      # Worker main file (API + Frontend)
+├── package.json      # Dependencies configuration
+├── wrangler.toml     # Cloudflare configuration
+├── tsconfig.json     # TypeScript configuration
+└── README.md         # Project documentation
 ```
 
-## 🔧 API 接口
+## 🔧 API Endpoints
 
 ### POST /api/upload
 
-上传图片并生成二维码
+Upload an image and generate a QR code
 
-**请求**: `multipart/form-data`
-- `file`: 图片文件
+**Request**: `multipart/form-data`
+- `file`: Image file
 
-**响应**:
+**Response**:
 ```json
 {
   "success": true,
@@ -78,9 +78,9 @@ qrcode/
 
 ### POST /api/qrcode
 
-生成自定义 URL 的二维码
+Generate a QR code for a custom URL
 
-**请求**: `application/json`
+**Request**: `application/json`
 ```json
 {
   "url": "https://example.com",
@@ -92,48 +92,47 @@ qrcode/
 
 ### GET /images/:fileName
 
-获取上传的图片
+Get uploaded image
 
-## 🎨 技术栈
+## 🎨 Tech Stack
 
-- **运行时**: Cloudflare Workers
-- **存储**: Cloudflare R2
-- **框架**: Hono
-- **二维码**: qrcode
-- **语言**: TypeScript
+- **Runtime**: Cloudflare Workers
+- **Storage**: Cloudflare R2
+- **Framework**: Hono
+- **QR Code**: qrcode
+- **Language**: TypeScript
 
-## 📝 环境配置
+## 📝 Environment Configuration
 
-`wrangler.toml` 配置说明:
+`wrangler.toml` configuration:
 
 ```toml
-name = "qrcode-generator"           # Worker 名称
-main = "src/index.ts"               # 入口文件
-compatibility_date = "2024-11-01"   # 兼容日期
+name = "qrcode-generator"           # Worker name
+main = "src/index.ts"               # Entry file
+compatibility_date = "2024-11-01"   # Compatibility date
 
 [[r2_buckets]]
-binding = "R2_BUCKET"               # 代码中使用的绑定名
-bucket_name = "qrcode-images"       # R2 存储桶名称
+binding = "R2_BUCKET"               # Binding name used in code
+bucket_name = "qrcode-images"      # R2 bucket name
 ```
 
-## 🌍 多语言支持
+## 🌍 Multi-language Support
 
-目前支持以下语言:
-- 🇨🇳 简体中文 (zh)
+Currently supports the following languages:
+- 🇨🇳 Simplified Chinese (zh)
 - 🇺🇸 English (en)
-- 🇯🇵 日本語 (ja)
-- 🇰🇷 한국어 (ko)
+- 🇯🇵 Japanese (ja)
+- 🇰🇷 Korean (ko)
 
-语言设置会自动保存到 localStorage。
+Language settings are automatically saved to localStorage.
 
-## 🎯 使用场景
+## 🎯 Use Cases
 
-- 快速分享图片给朋友
-- 生成产品图片二维码用于线下推广
-- 活动现场图片分享
-- 任何需要通过二维码分享图片的场景
+- Quickly share images with friends
+- Generate product image QR codes for offline promotion
+- Event photo sharing
+- Any scenario that requires sharing images via QR codes
 
-## 📜 许可证
+## 📜 License
 
 MIT License
-
