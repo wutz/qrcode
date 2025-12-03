@@ -27,9 +27,39 @@ npm install
 
 ### Create R2 Bucket
 
+#### Method 1: Create via Cloudflare Dashboard
+
 1. Log in to [Cloudflare Dashboard](https://dash.cloudflare.com/)
-2. Go to R2 Storage
-3. Create a bucket named `qrcode-images`
+2. Select your account
+3. Navigate to **R2** or **Workers & Pages** > **R2** in the left menu
+4. Click the **Create bucket** button
+5. Enter bucket name: `qrcode-images`
+6. Select location (optional, recommended to choose the region closest to you)
+7. Click **Create bucket** to complete
+
+#### Method 2: Create via Wrangler CLI
+
+```bash
+# Log in to Cloudflare (if not already logged in)
+npx wrangler login
+
+# Create R2 bucket
+npx wrangler r2 bucket create qrcode-images
+```
+
+#### Configure R2 Bucket Access
+
+**Important**: By default, R2 buckets are private. You need to configure access:
+
+**Option 1: Access via Workers Proxy (Recommended, used by this project)**
+- No additional configuration needed, the code already implements proxy access via `/images/:fileName` route
+- This approach is more secure and allows access control
+
+**Option 2: Configure Public Access (Not recommended for production)**
+- In Cloudflare Dashboard, go to R2 > your bucket
+- Click **Settings** > **Public Access**
+- Configure custom domain or use Cloudflare's public URL
+- ⚠️ Note: Public access will incur traffic fees
 
 ### Local Development
 
@@ -104,16 +134,99 @@ Get uploaded image
 
 ## 📝 Environment Configuration
 
-`wrangler.toml` configuration:
+### R2 Bucket Configuration
+
+#### 1. wrangler.toml Configuration
+
+Configure R2 bucket binding in the `wrangler.toml` file:
 
 ```toml
 name = "qrcode-generator"           # Worker name
 main = "src/index.ts"               # Entry file
 compatibility_date = "2024-11-01"   # Compatibility date
 
+# R2 Bucket Configuration
 [[r2_buckets]]
 binding = "R2_BUCKET"               # Binding name used in code
-bucket_name = "qrcode-images"      # R2 bucket name
+bucket_name = "qrcode-images"      # R2 bucket name (must match the bucket name created in Dashboard)
+```
+
+**Configuration Notes**:
+- `binding`: Variable name accessed via `c.env.R2_BUCKET` in Worker code
+- `bucket_name`: Actual name of the R2 bucket created in Cloudflare Dashboard
+- You can configure multiple R2 buckets, each bucket requires a separate `[[r2_buckets]]` configuration block
+
+#### 2. Using R2 Bucket in Code
+
+In TypeScript code, R2 bucket is accessed through environment bindings:
+
+```typescript
+type Bindings = {
+    R2_BUCKET: R2Bucket;  // Type definition
+};
+
+// Upload file to R2
+await c.env.R2_BUCKET.put(fileName, arrayBuffer, {
+    httpMetadata: {
+        contentType: file.type,
+    },
+});
+
+// Read file from R2
+const object = await c.env.R2_BUCKET.get(fileName);
+```
+
+#### 3. Local Development Configuration
+
+**Using Local R2 Emulator** (Recommended for development):
+
+Wrangler automatically uses the local emulator, no additional configuration needed. Running `npm run dev` will automatically start the local R2 emulator.
+
+**Connecting to Remote R2 Bucket**:
+
+If you want to connect to a real R2 bucket during local development, ensure:
+1. You have logged in via `npx wrangler login`
+2. The corresponding bucket has been created in Cloudflare Dashboard
+3. The bucket name matches the `bucket_name` in `wrangler.toml`
+
+#### 4. Deployment Configuration
+
+Pre-deployment Checklist:
+- ✅ R2 bucket created in Cloudflare Dashboard
+- ✅ `bucket_name` in `wrangler.toml` matches the name in Dashboard
+- ✅ Logged in to Cloudflare account via `npx wrangler login`
+- ✅ Worker has permission to access R2 bucket (automatically authorized on first deployment)
+
+Deployment command:
+```bash
+npm run deploy
+```
+
+#### 5. Multi-Environment Configuration
+
+If you need to use different buckets for different environments (development, production):
+
+```toml
+# Development environment
+[env.development]
+[[env.development.r2_buckets]]
+binding = "R2_BUCKET"
+bucket_name = "qrcode-images-dev"
+
+# Production environment
+[env.production]
+[[env.production.r2_buckets]]
+binding = "R2_BUCKET"
+bucket_name = "qrcode-images"
+```
+
+Deploy to specific environment:
+```bash
+# Deploy to development environment
+npx wrangler deploy --env development
+
+# Deploy to production environment
+npx wrangler deploy --env production
 ```
 
 ## 🌍 Multi-language Support
