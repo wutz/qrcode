@@ -3,7 +3,7 @@ import { cors } from 'hono/cors';
 import QRCode from 'qrcode';
 
 type Bindings = {
-    R2_BUCKET: R2Bucket;
+  R2_BUCKET: R2Bucket;
 };
 
 const app = new Hono<{ Bindings: Bindings }>();
@@ -13,152 +13,152 @@ app.use('*', cors());
 
 // Generate unique file name
 function generateFileName(originalName: string): string {
-    const timestamp = Date.now();
-    const random = Math.random().toString(36).substring(2, 8);
-    const ext = originalName.split('.').pop() || 'png';
-    return `${timestamp}-${random}.${ext}`;
+  const timestamp = Date.now();
+  const random = Math.random().toString(36).substring(2, 8);
+  const ext = originalName.split('.').pop() || 'png';
+  return `${timestamp}-${random}.${ext}`;
 }
 
 // Get file MIME type
 function getMimeType(fileName: string): string {
-    const ext = fileName.split('.').pop()?.toLowerCase();
-    const mimeTypes: Record<string, string> = {
-        'jpg': 'image/jpeg',
-        'jpeg': 'image/jpeg',
-        'png': 'image/png',
-        'gif': 'image/gif',
-        'webp': 'image/webp',
-        'svg': 'image/svg+xml',
-        'bmp': 'image/bmp',
-    };
-    return mimeTypes[ext || ''] || 'application/octet-stream';
+  const ext = fileName.split('.').pop()?.toLowerCase();
+  const mimeTypes: Record<string, string> = {
+    'jpg': 'image/jpeg',
+    'jpeg': 'image/jpeg',
+    'png': 'image/png',
+    'gif': 'image/gif',
+    'webp': 'image/webp',
+    'svg': 'image/svg+xml',
+    'bmp': 'image/bmp',
+  };
+  return mimeTypes[ext || ''] || 'application/octet-stream';
 }
 
 // Upload image and generate QR code
 app.post('/api/upload', async (c) => {
-    try {
-        const formData = await c.req.formData();
-        const file = formData.get('file') as File | null;
+  try {
+    const formData = await c.req.formData();
+    const file = formData.get('file') as File | null;
 
-        if (!file) {
-            return c.json({ error: 'Please select an image to upload' }, 400);
-        }
-
-        // Validate file type
-        const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml', 'image/bmp'];
-        if (!allowedTypes.includes(file.type)) {
-            return c.json({ error: 'Unsupported file type, please upload an image file' }, 400);
-        }
-
-        // Validate file size (max 10MB)
-        const maxSize = 10 * 1024 * 1024;
-        if (file.size > maxSize) {
-            return c.json({ error: 'File size cannot exceed 10MB' }, 400);
-        }
-
-        // Generate file name and upload to R2
-        const fileName = generateFileName(file.name);
-        const arrayBuffer = await file.arrayBuffer();
-
-        await c.env.R2_BUCKET.put(fileName, arrayBuffer, {
-            httpMetadata: {
-                contentType: file.type,
-            },
-        });
-
-        // Build public access URL
-        // Note: You need to configure public access for the R2 bucket in Cloudflare Dashboard
-        // Or use Workers to proxy access
-        const url = c.req.url;
-        const baseUrl = new URL(url).origin;
-        const publicUrl = `${baseUrl}/images/${fileName}`;
-
-        // Generate QR code (PNG format Data URL)
-        const qrCodeDataUrl = await QRCode.toDataURL(publicUrl, {
-            width: 300,
-            margin: 2,
-            color: {
-                dark: '#000000',
-                light: '#ffffff',
-            },
-        });
-
-        return c.json({
-            success: true,
-            imageUrl: publicUrl,
-            qrCode: qrCodeDataUrl,
-            fileName: fileName,
-        });
-    } catch (error) {
-        console.error('Upload error:', error);
-        return c.json({ error: 'Upload failed, please try again' }, 500);
+    if (!file) {
+      return c.json({ error: 'Please select an image to upload' }, 400);
     }
+
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml', 'image/bmp'];
+    if (!allowedTypes.includes(file.type)) {
+      return c.json({ error: 'Unsupported file type, please upload an image file' }, 400);
+    }
+
+    // Validate file size (max 10MB)
+    const maxSize = 10 * 1024 * 1024;
+    if (file.size > maxSize) {
+      return c.json({ error: 'File size cannot exceed 10MB' }, 400);
+    }
+
+    // Generate file name and upload to R2
+    const fileName = generateFileName(file.name);
+    const arrayBuffer = await file.arrayBuffer();
+
+    await c.env.R2_BUCKET.put(fileName, arrayBuffer, {
+      httpMetadata: {
+        contentType: file.type,
+      },
+    });
+
+    // Build public access URL
+    // Note: You need to configure public access for the R2 bucket in Cloudflare Dashboard
+    // Or use Workers to proxy access
+    const url = c.req.url;
+    const baseUrl = new URL(url).origin;
+    const publicUrl = `${baseUrl}/images/${fileName}`;
+
+    // Generate QR code (PNG format Data URL)
+    const qrCodeDataUrl = await QRCode.toDataURL(publicUrl, {
+      width: 300,
+      margin: 2,
+      color: {
+        dark: '#000000',
+        light: '#ffffff',
+      },
+    });
+
+    return c.json({
+      success: true,
+      imageUrl: publicUrl,
+      qrCode: qrCodeDataUrl,
+      fileName: fileName,
+    });
+  } catch (error) {
+    console.error('Upload error:', error);
+    return c.json({ error: 'Upload failed, please try again' }, 500);
+  }
 });
 
 // Proxy access to images in R2
 app.get('/images/:fileName', async (c) => {
-    const fileName = c.req.param('fileName');
+  const fileName = c.req.param('fileName');
 
-    try {
-        const object = await c.env.R2_BUCKET.get(fileName);
+  try {
+    const object = await c.env.R2_BUCKET.get(fileName);
 
-        if (!object) {
-            return c.json({ error: 'Image not found' }, 404);
-        }
-
-        const headers = new Headers();
-        headers.set('Content-Type', object.httpMetadata?.contentType || getMimeType(fileName));
-        headers.set('Cache-Control', 'public, max-age=31536000'); // Cache for one year
-
-        return new Response(object.body, { headers });
-    } catch (error) {
-        console.error('Get image error:', error);
-        return c.json({ error: 'Failed to get image' }, 500);
+    if (!object) {
+      return c.json({ error: 'Image not found' }, 404);
     }
+
+    const headers = new Headers();
+    headers.set('Content-Type', object.httpMetadata?.contentType || getMimeType(fileName));
+    headers.set('Cache-Control', 'public, max-age=31536000'); // Cache for one year
+
+    return new Response(object.body, { headers });
+  } catch (error) {
+    console.error('Get image error:', error);
+    return c.json({ error: 'Failed to get image' }, 500);
+  }
 });
 
 // Generate QR code only (for custom URL)
 app.post('/api/qrcode', async (c) => {
-    try {
-        const body = await c.req.json();
-        const { url, size = 300, darkColor = '#000000', lightColor = '#ffffff' } = body;
+  try {
+    const body = await c.req.json();
+    const { url, size = 300, darkColor = '#000000', lightColor = '#ffffff' } = body;
 
-        if (!url) {
-            return c.json({ error: 'Please provide a URL' }, 400);
-        }
-
-        const qrCodeDataUrl = await QRCode.toDataURL(url, {
-            width: size,
-            margin: 2,
-            color: {
-                dark: darkColor,
-                light: lightColor,
-            },
-        });
-
-        return c.json({
-            success: true,
-            qrCode: qrCodeDataUrl,
-        });
-    } catch (error) {
-        console.error('QR Code error:', error);
-        return c.json({ error: 'Failed to generate QR code' }, 500);
+    if (!url) {
+      return c.json({ error: 'Please provide a URL' }, 400);
     }
+
+    const qrCodeDataUrl = await QRCode.toDataURL(url, {
+      width: size,
+      margin: 2,
+      color: {
+        dark: darkColor,
+        light: lightColor,
+      },
+    });
+
+    return c.json({
+      success: true,
+      qrCode: qrCodeDataUrl,
+    });
+  } catch (error) {
+    console.error('QR Code error:', error);
+    return c.json({ error: 'Failed to generate QR code' }, 500);
+  }
 });
 
 // Frontend static page
 app.get('/', (c) => {
-    return c.html(getHtmlPage());
+  return c.html(getHtmlPage());
 });
 
 // Health check
 app.get('/health', (c) => {
-    return c.json({ status: 'ok', timestamp: new Date().toISOString() });
+  return c.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
 // Get frontend HTML page
 function getHtmlPage(): string {
-    return `<!DOCTYPE html>
+  return `<!DOCTYPE html>
 <html lang="en" data-theme="light">
 <head>
   <meta charset="UTF-8">
