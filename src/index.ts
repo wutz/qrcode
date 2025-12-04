@@ -1105,6 +1105,10 @@ function getHtmlPage(): string {
   <div class="toast" id="toast"></div>
 
   <script>
+    // Store current uploaded file info
+    let currentFileName = null;
+    let currentOriginalFileName = null;
+
     // Multi-language support
     const i18n = {
       en: {
@@ -1127,6 +1131,7 @@ function getHtmlPage(): string {
         qrGenerationFailed: 'QR code generation failed, but image uploaded successfully',
         placeholderText: 'QR code will appear here',
         placeholderHint: 'Upload an image to generate QR code',
+        downloadError: 'Download failed, trying to download as SVG format',
       },
       zh: {
         title: '图片二维码生成器',
@@ -1148,6 +1153,7 @@ function getHtmlPage(): string {
         qrGenerationFailed: '二维码生成失败，但图片已成功上传',
         placeholderText: '上传图片后，二维码将显示在这里',
         placeholderHint: 'Upload an image to generate QR code',
+        downloadError: '下载失败，已尝试下载为SVG格式',
       },
       ja: {
         title: '画像QRコード生成',
@@ -1169,6 +1175,7 @@ function getHtmlPage(): string {
         qrGenerationFailed: 'QRコードの生成に失敗しましたが、画像のアップロードは成功しました',
         placeholderText: '画像をアップロードすると、QRコードがここに表示されます',
         placeholderHint: 'Upload an image to generate QR code',
+        downloadError: 'ダウンロードに失敗しました。SVG形式でダウンロードを試みます',
       },
       ko: {
         title: '이미지 QR코드 생성기',
@@ -1190,6 +1197,7 @@ function getHtmlPage(): string {
         qrGenerationFailed: 'QR코드 생성 실패, 하지만 이미지 업로드는 성공했습니다',
         placeholderText: '이미지를 업로드하면 QR코드가 여기에 표시됩니다',
         placeholderHint: 'Upload an image to generate QR code',
+        downloadError: '다운로드 실패, SVG 형식으로 다운로드를 시도합니다',
       },
     };
 
@@ -1350,12 +1358,74 @@ function getHtmlPage(): string {
       });
 
       // Download QR code
-      downloadQr.addEventListener('click', () => {
+      downloadQr.addEventListener('click', async () => {
         const qrImage = document.getElementById('qrImage');
-        const link = document.createElement('a');
-        link.download = 'qrcode.png';
-        link.href = qrImage.src;
-        link.click();
+        const src = qrImage.src;
+        
+        try {
+          // Check if it's an SVG data URL
+          if (src.startsWith('data:image/svg+xml')) {
+            // Convert SVG to PNG using Canvas
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            
+            await new Promise((resolve, reject) => {
+              img.onload = resolve;
+              img.onerror = reject;
+              img.src = src;
+            });
+            
+            // Create canvas and draw image
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Get image dimensions (use natural dimensions for better quality)
+            const imgWidth = img.naturalWidth || img.width || 300;
+            const imgHeight = img.naturalHeight || img.height || 300;
+            canvas.width = imgWidth;
+            canvas.height = imgHeight;
+            
+            // Draw white background first (for SVG transparency)
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw the QR code image
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            
+            // Convert canvas to PNG blob and download
+            canvas.toBlob((blob) => {
+              if (blob) {
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.download = generateDownloadFileName('png');
+                link.href = url;
+                link.click();
+                // Clean up
+                setTimeout(() => URL.revokeObjectURL(url), 100);
+              } else {
+                // Fallback: download as SVG
+                const link = document.createElement('a');
+                link.download = generateDownloadFileName('svg');
+                link.href = src;
+                link.click();
+              }
+            }, 'image/png');
+          } else {
+            // If it's already a PNG or other format, download directly
+            const link = document.createElement('a');
+            link.download = generateDownloadFileName('png');
+            link.href = src;
+            link.click();
+          }
+        } catch (error) {
+          console.error('Download error:', error);
+          // Fallback: try to download as SVG
+          const link = document.createElement('a');
+          link.download = generateDownloadFileName('svg');
+          link.href = src;
+          link.click();
+          showToast(i18n[currentLang].downloadError || '下载失败，已尝试下载为SVG格式', false);
+        }
       });
 
       // Preview remove button
@@ -1388,8 +1458,19 @@ function getHtmlPage(): string {
       uploadPreview.src = '';
       fileInput.value = '';
       
+      // Reset file name info
+      currentFileName = null;
+      currentOriginalFileName = null;
+      
       // Reset result card to placeholder state
       resultCard.classList.remove('has-result');
+    }
+
+    // Generate download file name
+    function generateDownloadFileName(extension) {
+      extension = extension || 'png';
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+      return 'qrcode-' + timestamp + '.' + extension;
     }
 
     // Show preview
@@ -1419,6 +1500,9 @@ function getHtmlPage(): string {
       const progressBar = document.getElementById('progressBar');
       const resultCard = document.getElementById('resultCard');
 
+      // Save original file name
+      currentOriginalFileName = file.name;
+
       // Show preview immediately
       showPreview(file);
 
@@ -1440,6 +1524,9 @@ function getHtmlPage(): string {
         if (!response.ok) {
           throw new Error(data.error || i18n[currentLang].uploadError);
         }
+
+        // Save uploaded file name
+        currentFileName = data.fileName || null;
 
         // Show result
         if (data.qrCode) {
