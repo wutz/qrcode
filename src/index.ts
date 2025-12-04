@@ -74,14 +74,47 @@ app.post('/api/upload', async (c) => {
     const publicUrl = `${baseUrl}/images/${fileName}`;
 
     // Generate QR code (PNG format Data URL)
-    const qrCodeDataUrl = await QRCode.toDataURL(publicUrl, {
-      width: 300,
-      margin: 2,
-      color: {
-        dark: '#000000',
-        light: '#ffffff',
-      },
-    });
+    // Wrap QR code generation in try-catch so upload success isn't affected if QR generation fails
+    let qrCodeDataUrl: string | null = null;
+    try {
+      // Validate URL before generating QR code
+      if (!publicUrl || publicUrl.length === 0) {
+        throw new Error('Invalid public URL for QR code generation');
+      }
+
+      // Validate URL format
+      try {
+        new URL(publicUrl);
+      } catch {
+        throw new Error(`Invalid URL format: ${publicUrl}`);
+      }
+
+      qrCodeDataUrl = await QRCode.toDataURL(publicUrl, {
+        width: 300,
+        margin: 2,
+        color: {
+          dark: '#000000',
+          light: '#ffffff',
+        },
+        errorCorrectionLevel: 'M', // Medium error correction
+      });
+
+      // Verify QR code was generated successfully
+      if (!qrCodeDataUrl || !qrCodeDataUrl.startsWith('data:image')) {
+        throw new Error('QR code generation returned invalid data');
+      }
+    } catch (qrError) {
+      // Log detailed error information for debugging
+      const errorMessage = qrError instanceof Error ? qrError.message : String(qrError);
+      const errorStack = qrError instanceof Error ? qrError.stack : undefined;
+      console.error('QR Code generation error:', {
+        message: errorMessage,
+        stack: errorStack,
+        publicUrl: publicUrl,
+        fileName: fileName,
+      });
+      // Continue even if QR code generation fails - file upload was successful
+    }
 
     return c.json({
       success: true,
@@ -127,6 +160,13 @@ app.post('/api/qrcode', async (c) => {
       return c.json({ error: 'Please provide a URL' }, 400);
     }
 
+    // Validate URL format
+    try {
+      new URL(url);
+    } catch {
+      return c.json({ error: 'Invalid URL format' }, 400);
+    }
+
     const qrCodeDataUrl = await QRCode.toDataURL(url, {
       width: size,
       margin: 2,
@@ -134,15 +174,30 @@ app.post('/api/qrcode', async (c) => {
         dark: darkColor,
         light: lightColor,
       },
+      errorCorrectionLevel: 'M', // Medium error correction
     });
+
+    // Verify QR code was generated successfully
+    if (!qrCodeDataUrl || !qrCodeDataUrl.startsWith('data:image')) {
+      throw new Error('QR code generation returned invalid data');
+    }
 
     return c.json({
       success: true,
       qrCode: qrCodeDataUrl,
     });
   } catch (error) {
-    console.error('QR Code error:', error);
-    return c.json({ error: 'Failed to generate QR code' }, 500);
+    // Log detailed error information for debugging
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    console.error('QR Code error:', {
+      message: errorMessage,
+      stack: errorStack,
+    });
+    return c.json({
+      error: 'Failed to generate QR code',
+      details: errorMessage,
+    }, 500);
   }
 });
 
@@ -761,6 +816,7 @@ function getHtmlPage(): string {
         copySuccess: 'Link copied to clipboard',
         copyError: 'Copy failed, please copy manually',
         uploadError: 'Upload failed, please try again',
+        qrGenerationFailed: 'QR code generation failed, but image uploaded successfully',
       },
       zh: {
         title: '图片二维码生成器',
@@ -779,6 +835,7 @@ function getHtmlPage(): string {
         copySuccess: '链接已复制到剪贴板',
         copyError: '复制失败，请手动复制',
         uploadError: '上传失败，请重试',
+        qrGenerationFailed: '二维码生成失败，但图片已成功上传',
       },
       ja: {
         title: '画像QRコード生成',
@@ -797,6 +854,7 @@ function getHtmlPage(): string {
         copySuccess: 'リンクをクリップボードにコピーしました',
         copyError: 'コピーに失敗しました',
         uploadError: 'アップロードに失敗しました',
+        qrGenerationFailed: 'QRコードの生成に失敗しましたが、画像のアップロードは成功しました',
       },
       ko: {
         title: '이미지 QR코드 생성기',
@@ -815,6 +873,7 @@ function getHtmlPage(): string {
         copySuccess: '링크가 클립보드에 복사되었습니다',
         copyError: '복사 실패',
         uploadError: '업로드 실패, 다시 시도해 주세요',
+        qrGenerationFailed: 'QR코드 생성 실패, 하지만 이미지 업로드는 성공했습니다',
       },
     };
 
@@ -1029,7 +1088,15 @@ function getHtmlPage(): string {
 
         // Show result
         document.getElementById('previewImage').src = data.imageUrl;
-        document.getElementById('qrImage').src = data.qrCode;
+        if (data.qrCode) {
+          document.getElementById('qrImage').src = data.qrCode;
+        } else {
+          // If QR code generation failed, show error message or placeholder
+          const qrImage = document.getElementById('qrImage');
+          qrImage.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTgwIiBoZWlnaHQ9IjE4MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjBmMGYwIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5RUkNvZGUgR2VuZXJhdGlvbiBGYWlsZWQ8L3RleHQ+PC9zdmc+';
+          // Show warning toast that QR generation failed but upload succeeded
+          showToast(i18n[currentLang].qrGenerationFailed, false);
+        }
         document.getElementById('imageUrl').textContent = data.imageUrl;
 
         progressBar.classList.remove('show', 'indeterminate');
