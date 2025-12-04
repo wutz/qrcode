@@ -489,6 +489,122 @@ function getHtmlPage(): string {
       transform: scale(1.01);
     }
 
+    .upload-card.has-preview {
+      padding: 24px;
+      border-style: solid;
+      border-color: var(--accent);
+      background: var(--bg-secondary);
+    }
+
+    .upload-preview-container {
+      display: none;
+      position: relative;
+      margin-bottom: 20px;
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      background: var(--bg-tertiary);
+      box-shadow: var(--shadow-md);
+      border: 1px solid var(--border);
+    }
+
+    .upload-preview-container.show {
+      display: block;
+      animation: fadeInScale 0.3s ease;
+    }
+
+    @keyframes fadeInScale {
+      from {
+        opacity: 0;
+        transform: scale(0.95);
+      }
+      to {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
+    .upload-preview {
+      width: 100%;
+      max-height: 450px;
+      object-fit: contain;
+      display: block;
+    }
+
+    .upload-preview-info {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: linear-gradient(to top, rgba(0, 0, 0, 0.7), transparent);
+      padding: 16px;
+      color: #fff;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      opacity: 0;
+      transition: opacity var(--transition);
+    }
+
+    .upload-preview-container:hover .upload-preview-info {
+      opacity: 1;
+    }
+
+    .upload-preview-name {
+      font-size: 14px;
+      font-weight: 500;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
+      margin-right: 12px;
+    }
+
+    .upload-preview-size {
+      font-size: 12px;
+      opacity: 0.9;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .upload-preview-remove {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: rgba(0, 0, 0, 0.6);
+      border: none;
+      color: #fff;
+      font-size: 18px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: all var(--transition);
+      z-index: 10;
+    }
+
+    .upload-preview-container:hover .upload-preview-remove {
+      opacity: 1;
+    }
+
+    .upload-preview-remove:hover {
+      background: rgba(199, 93, 58, 0.9);
+      transform: scale(1.1);
+    }
+
+    .upload-content {
+      transition: all var(--transition);
+    }
+
+    .upload-card.has-preview .upload-content {
+      opacity: 0;
+      height: 0;
+      overflow: hidden;
+      margin: 0;
+    }
+
     .upload-icon {
       font-size: 56px;
       margin-bottom: 16px;
@@ -735,6 +851,47 @@ function getHtmlPage(): string {
     footer a:hover {
       color: var(--accent);
     }
+
+    /* Responsive design for preview */
+    @media (max-width: 640px) {
+      .upload-preview {
+        max-height: 300px;
+      }
+
+      .upload-preview-info {
+        padding: 12px;
+        font-size: 12px;
+      }
+
+      .upload-preview-name {
+        font-size: 13px;
+      }
+
+      .upload-preview-size {
+        font-size: 11px;
+      }
+
+      .upload-preview-remove {
+        width: 28px;
+        height: 28px;
+        font-size: 16px;
+        top: 8px;
+        right: 8px;
+      }
+
+      .upload-card.has-preview {
+        padding: 16px;
+      }
+    }
+
+    /* Ensure preview container doesn't interfere with file input */
+    .upload-preview-container {
+      pointer-events: none;
+    }
+
+    .upload-preview-container .upload-preview-remove {
+      pointer-events: auto;
+    }
   </style>
 </head>
 <body>
@@ -746,14 +903,24 @@ function getHtmlPage(): string {
     </header>
 
     <div class="upload-card" id="uploadCard">
-      <span class="upload-icon">📤</span>
-      <h2 class="upload-title" data-i18n="uploadTitle">Click or drag to upload image</h2>
-      <p class="upload-hint" data-i18n="uploadHint">Supports JPG, PNG, GIF, WebP, max 10MB</p>
-      <div class="upload-formats">
-        <span class="format-tag">JPG</span>
-        <span class="format-tag">PNG</span>
-        <span class="format-tag">GIF</span>
-        <span class="format-tag">WebP</span>
+      <div class="upload-preview-container" id="uploadPreviewContainer">
+        <img class="upload-preview" id="uploadPreview" alt="Preview">
+        <button class="upload-preview-remove" id="previewRemove" title="Remove preview">×</button>
+        <div class="upload-preview-info">
+          <span class="upload-preview-name" id="previewFileName"></span>
+          <span class="upload-preview-size" id="previewFileSize"></span>
+        </div>
+      </div>
+      <div class="upload-content">
+        <span class="upload-icon">📤</span>
+        <h2 class="upload-title" data-i18n="uploadTitle">Click or drag to upload image</h2>
+        <p class="upload-hint" data-i18n="uploadHint">Supports JPG, PNG, GIF, WebP, max 10MB</p>
+        <div class="upload-formats">
+          <span class="format-tag">JPG</span>
+          <span class="format-tag">PNG</span>
+          <span class="format-tag">GIF</span>
+          <span class="format-tag">WebP</span>
+        </div>
       </div>
       <input type="file" id="fileInput" accept="image/*">
       <div class="progress-bar" id="progressBar">
@@ -1056,14 +1223,68 @@ function getHtmlPage(): string {
       // Upload another
       uploadAnother.addEventListener('click', () => {
         document.getElementById('resultCard').classList.remove('show');
-        fileInput.value = '';
+        resetPreview();
       });
+
+      // Preview remove button
+      const previewRemove = document.getElementById('previewRemove');
+      previewRemove.addEventListener('click', (e) => {
+        e.stopPropagation();
+        resetPreview();
+      });
+    }
+
+    // Format file size
+    function formatFileSize(bytes) {
+      if (bytes === 0) return '0 B';
+      const k = 1024;
+      const sizes = ['B', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+    }
+
+    // Reset preview
+    function resetPreview() {
+      const uploadCard = document.getElementById('uploadCard');
+      const uploadPreviewContainer = document.getElementById('uploadPreviewContainer');
+      const uploadPreview = document.getElementById('uploadPreview');
+      const fileInput = document.getElementById('fileInput');
+      
+      uploadCard.classList.remove('has-preview');
+      uploadPreviewContainer.classList.remove('show');
+      uploadPreview.src = '';
+      fileInput.value = '';
+    }
+
+    // Show preview
+    function showPreview(file) {
+      const uploadCard = document.getElementById('uploadCard');
+      const uploadPreviewContainer = document.getElementById('uploadPreviewContainer');
+      const uploadPreview = document.getElementById('uploadPreview');
+      const previewFileName = document.getElementById('previewFileName');
+      const previewFileSize = document.getElementById('previewFileSize');
+
+      // Show file info
+      previewFileName.textContent = file.name;
+      previewFileSize.textContent = formatFileSize(file.size);
+
+      // Show preview image
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        uploadPreview.src = e.target.result;
+        uploadPreviewContainer.classList.add('show');
+        uploadCard.classList.add('has-preview');
+      };
+      reader.readAsDataURL(file);
     }
 
     // Handle file upload
     async function handleFile(file) {
       const progressBar = document.getElementById('progressBar');
       const resultCard = document.getElementById('resultCard');
+
+      // Show preview immediately
+      showPreview(file);
 
       // Show progress bar
       progressBar.classList.add('show', 'indeterminate');
