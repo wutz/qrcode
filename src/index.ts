@@ -946,10 +946,6 @@ function getHtmlPage(): string {
           <span>⬇</span>
           <span data-i18n="downloadQr">Download QR</span>
         </button>
-        <button class="btn btn-secondary" id="uploadAnother">
-          <span>🔄</span>
-          <span data-i18n="uploadAnother">Upload Another</span>
-        </button>
       </div>
     </div>
 
@@ -1166,7 +1162,6 @@ function getHtmlPage(): string {
       const themeToggle = document.getElementById('themeToggle');
       const langSelect = document.getElementById('langSelect');
       const downloadQr = document.getElementById('downloadQr');
-      const uploadAnother = document.getElementById('uploadAnother');
 
       // Theme toggle
       themeToggle.addEventListener('click', () => {
@@ -1218,12 +1213,6 @@ function getHtmlPage(): string {
         link.download = 'qrcode.png';
         link.href = qrImage.src;
         link.click();
-      });
-
-      // Upload another
-      uploadAnother.addEventListener('click', () => {
-        document.getElementById('resultCard').classList.remove('show');
-        resetPreview();
       });
 
       // Preview remove button
