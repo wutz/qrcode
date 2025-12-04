@@ -515,6 +515,11 @@ function getHtmlPage(): string {
       background: var(--bg-secondary);
     }
 
+    .upload-card.upload-success {
+      border-color: var(--success);
+      background: rgba(74, 157, 91, 0.05);
+    }
+
     .upload-preview-container {
       display: none;
       position: relative;
@@ -524,6 +529,41 @@ function getHtmlPage(): string {
       background: var(--bg-tertiary);
       box-shadow: var(--shadow-md);
       border: 1px solid var(--border);
+    }
+
+    .upload-success-badge {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      background: rgba(74, 157, 91, 0.95);
+      border-radius: var(--radius-sm);
+      color: #fff;
+      font-size: 13px;
+      font-weight: 500;
+      z-index: 10;
+      opacity: 0;
+      transition: opacity var(--transition);
+      pointer-events: none;
+    }
+
+    .upload-preview-container.show .upload-success-badge {
+      opacity: 1;
+      animation: fadeInSlide 0.4s ease;
+    }
+
+    @keyframes fadeInSlide {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
     }
 
     .upload-preview-container.show {
@@ -721,59 +761,21 @@ function getHtmlPage(): string {
 
     /* Placeholder state */
     .result-card .result-placeholder {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      gap: 20px;
-      opacity: 0.6;
-      transition: opacity var(--transition);
+      display: block;
+      width: 100%;
+      height: 100%;
+      min-height: 320px;
     }
 
     .result-card.has-result .result-placeholder {
       display: none;
     }
 
-    .result-card:not(.has-result) .result-header,
     .result-card:not(.has-result) .result-content .result-section,
     .result-card:not(.has-result) .btn-group {
       display: none;
     }
 
-    .placeholder-icon {
-      font-size: 80px;
-      opacity: 0.4;
-      animation: pulse 2s ease-in-out infinite;
-      filter: grayscale(0.3);
-    }
-
-    @keyframes pulse {
-      0%, 100% {
-        opacity: 0.4;
-        transform: scale(1);
-      }
-      50% {
-        opacity: 0.6;
-        transform: scale(1.05);
-      }
-    }
-
-    .placeholder-text {
-      color: var(--text-secondary);
-      font-size: 16px;
-      font-weight: 500;
-      max-width: 280px;
-      line-height: 1.6;
-      margin-bottom: 4px;
-    }
-
-    .placeholder-hint {
-      color: var(--text-muted);
-      font-size: 13px;
-      opacity: 0.8;
-      font-weight: 400;
-    }
 
     @keyframes slideUp {
       from {
@@ -786,28 +788,6 @@ function getHtmlPage(): string {
       }
     }
 
-    .result-header {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 12px;
-      margin-bottom: 24px;
-      padding-bottom: 16px;
-      border-bottom: 1px solid var(--border);
-      width: 100%;
-    }
-
-    .success-badge {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 6px 12px;
-      background: rgba(74, 157, 91, 0.1);
-      border-radius: var(--radius-sm);
-      color: var(--success);
-      font-size: 14px;
-      font-weight: 500;
-    }
 
     .result-content {
       display: flex;
@@ -835,8 +815,8 @@ function getHtmlPage(): string {
     }
 
     .qr-image {
-      width: 240px;
-      height: 240px;
+      width: 320px;
+      height: 320px;
       border-radius: var(--radius-md);
       background: #fff;
       padding: 16px;
@@ -953,8 +933,8 @@ function getHtmlPage(): string {
       }
 
       .qr-image {
-        width: 200px;
-        height: 200px;
+        width: 280px;
+        height: 280px;
       }
     }
 
@@ -1005,8 +985,8 @@ function getHtmlPage(): string {
       }
 
       .qr-image {
-        width: 180px;
-        height: 180px;
+        width: 240px;
+        height: 240px;
         padding: 12px;
       }
     }
@@ -1032,6 +1012,10 @@ function getHtmlPage(): string {
     <div class="main-content">
       <div class="upload-card" id="uploadCard">
         <div class="upload-preview-container" id="uploadPreviewContainer">
+          <div class="upload-success-badge" id="uploadSuccessBadge">
+            <span>✓</span>
+            <span data-i18n="uploadSuccess">Upload successful</span>
+          </div>
           <img class="upload-preview" id="uploadPreview" alt="Preview">
           <button class="upload-preview-remove" id="previewRemove" title="Remove preview">×</button>
           <div class="upload-preview-info">
@@ -1057,18 +1041,7 @@ function getHtmlPage(): string {
       </div>
 
       <div class="result-card" id="resultCard">
-        <div class="result-placeholder">
-          <div class="placeholder-icon">📱</div>
-          <div>
-            <div class="placeholder-text" data-i18n="placeholderText">上传图片后，二维码将显示在这里</div>
-          </div>
-        </div>
-        <div class="result-header">
-          <span class="success-badge">
-            <span>✓</span>
-            <span data-i18n="uploadSuccess">Upload successful</span>
-          </span>
-        </div>
+        <div class="result-placeholder"></div>
         <div class="result-content">
           <div class="result-section">
             <div class="result-label" data-i18n="qrcode">QR Code</div>
@@ -1452,11 +1425,15 @@ function getHtmlPage(): string {
       const uploadPreview = document.getElementById('uploadPreview');
       const fileInput = document.getElementById('fileInput');
       const resultCard = document.getElementById('resultCard');
+      const uploadSuccessBadge = document.getElementById('uploadSuccessBadge');
       
-      uploadCard.classList.remove('has-preview');
+      uploadCard.classList.remove('has-preview', 'upload-success');
       uploadPreviewContainer.classList.remove('show');
       uploadPreview.src = '';
       fileInput.value = '';
+      if (uploadSuccessBadge) {
+        uploadSuccessBadge.style.display = 'none';
+      }
       
       // Reset file name info
       currentFileName = null;
@@ -1537,6 +1514,14 @@ function getHtmlPage(): string {
           qrImage.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTgwIiBoZWlnaHQ9IjE4MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjBmMGYwIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5RUkNvZGUgR2VuZXJhdGlvbiBGYWlsZWQ8L3RleHQ+PC9zdmc+';
           // Show warning toast that QR generation failed but upload succeeded
           showToast(i18n[currentLang].qrGenerationFailed, false);
+        }
+
+        // Show success badge in upload area
+        const uploadCard = document.getElementById('uploadCard');
+        uploadCard.classList.add('upload-success');
+        const uploadSuccessBadge = document.getElementById('uploadSuccessBadge');
+        if (uploadSuccessBadge) {
+          uploadSuccessBadge.style.display = 'flex';
         }
 
         progressBar.classList.remove('show', 'indeterminate');
