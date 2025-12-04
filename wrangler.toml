@@ -10,6 +10,12 @@ compatibility_flags = ["nodejs_compat"]
 binding = "R2_BUCKET"
 bucket_name = "qrcode-images"
 
+# R2 公共访问 URL 配置（可选）
+# 如果配置了 R2 bucket 的公共访问，可以设置此环境变量来使用直接链接而非代理链接
+# 格式示例: https://xxx.r2.cloudflarestorage.com/qrcode-images 或 https://your-custom-domain.com
+# 通过以下命令设置: wrangler secret put R2_PUBLIC_URL
+# 如果不设置，将使用 Workers 代理链接 (/images/:fileName)
+
 # If you need a custom domain, uncomment the following
 # [routes]
 # patterns = ["your-domain.com/*"]

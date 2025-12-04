@@ -4,6 +4,7 @@ import QRCode from 'qrcode-svg';
 
 type Bindings = {
   R2_BUCKET: R2Bucket;
+  R2_PUBLIC_URL?: string; // R2 公共访问 URL 基础部分，例如: https://xxx.r2.cloudflarestorage.com/qrcode-images 或 https://your-custom-domain.com
 };
 
 const app = new Hono<{ Bindings: Bindings }>();
@@ -125,11 +126,22 @@ app.post('/api/upload', async (c) => {
     });
 
     // Build public access URL
-    // Note: You need to configure public access for the R2 bucket in Cloudflare Dashboard
-    // Or use Workers to proxy access
-    const url = c.req.url;
-    const baseUrl = new URL(url).origin;
-    const publicUrl = `${baseUrl}/images/${fileName}`;
+    // 优先使用 R2 的直接公共访问链接，如果没有配置则回退到 Workers 代理链接
+    let publicUrl: string;
+    if (c.env.R2_PUBLIC_URL) {
+      // 使用 R2 的直接公共访问链接
+      // R2_PUBLIC_URL 应该包含完整的路径前缀，例如: https://xxx.r2.cloudflarestorage.com/qrcode-images
+      // 或者自定义域名: https://your-custom-domain.com
+      const baseUrl = c.env.R2_PUBLIC_URL.endsWith('/')
+        ? c.env.R2_PUBLIC_URL.slice(0, -1)
+        : c.env.R2_PUBLIC_URL;
+      publicUrl = `${baseUrl}/${fileName}`;
+    } else {
+      // 回退到 Workers 代理链接
+      const url = c.req.url;
+      const baseUrl = new URL(url).origin;
+      publicUrl = `${baseUrl}/images/${fileName}`;
+    }
 
     // Generate QR code (PNG format Data URL)
     // Wrap QR code generation in try-catch so upload success isn't affected if QR generation fails

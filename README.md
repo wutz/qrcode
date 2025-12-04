@@ -60,6 +60,12 @@ npx wrangler r2 bucket create qrcode-images
 - Click **Settings** > **Public Access**
 - Configure custom domain or use Cloudflare's public URL
 - ⚠️ Note: Public access will incur traffic fees
+- After configuring public access, set the `R2_PUBLIC_URL` secret to use direct R2 links for QR codes:
+  ```bash
+  wrangler secret put R2_PUBLIC_URL
+  # Enter the public URL, e.g.: https://xxx.r2.cloudflarestorage.com/qrcode-images
+  # Or custom domain: https://your-custom-domain.com
+  ```
 
 ### Local Development
 
