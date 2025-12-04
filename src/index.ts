@@ -358,9 +358,24 @@ function getHtmlPage(): string {
     }
 
     .container {
-      max-width: 680px;
+      max-width: 1200px;
       margin: 0 auto;
       padding: 48px 24px;
+    }
+
+    /* Main content area for side-by-side layout */
+    .main-content {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 32px;
+      margin-top: 32px;
+    }
+
+    @media (max-width: 960px) {
+      .main-content {
+        grid-template-columns: 1fr;
+        gap: 24px;
+      }
     }
 
     /* Header */
@@ -477,6 +492,10 @@ function getHtmlPage(): string {
       cursor: pointer;
       position: relative;
       overflow: hidden;
+      min-height: 400px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
     }
 
     .upload-card:hover,
@@ -688,13 +707,72 @@ function getHtmlPage(): string {
       border: 1px solid var(--border);
       border-radius: var(--radius-lg);
       padding: 32px;
-      margin-top: 24px;
-      display: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      min-height: 400px;
+      transition: all var(--transition);
+    }
+
+    .result-card.has-result {
       animation: slideUp 0.4s ease;
     }
 
-    .result-card.show {
-      display: block;
+    /* Placeholder state */
+    .result-card .result-placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      gap: 20px;
+      opacity: 0.6;
+      transition: opacity var(--transition);
+    }
+
+    .result-card.has-result .result-placeholder {
+      display: none;
+    }
+
+    .result-card:not(.has-result) .result-header,
+    .result-card:not(.has-result) .result-content .result-section,
+    .result-card:not(.has-result) .btn-group {
+      display: none;
+    }
+
+    .placeholder-icon {
+      font-size: 80px;
+      opacity: 0.4;
+      animation: pulse 2s ease-in-out infinite;
+      filter: grayscale(0.3);
+    }
+
+    @keyframes pulse {
+      0%, 100% {
+        opacity: 0.4;
+        transform: scale(1);
+      }
+      50% {
+        opacity: 0.6;
+        transform: scale(1.05);
+      }
+    }
+
+    .placeholder-text {
+      color: var(--text-secondary);
+      font-size: 16px;
+      font-weight: 500;
+      max-width: 280px;
+      line-height: 1.6;
+      margin-bottom: 4px;
+    }
+
+    .placeholder-hint {
+      color: var(--text-muted);
+      font-size: 13px;
+      opacity: 0.8;
+      font-weight: 400;
     }
 
     @keyframes slideUp {
@@ -711,10 +789,12 @@ function getHtmlPage(): string {
     .result-header {
       display: flex;
       align-items: center;
+      justify-content: center;
       gap: 12px;
       margin-bottom: 24px;
       padding-bottom: 16px;
       border-bottom: 1px solid var(--border);
+      width: 100%;
     }
 
     .success-badge {
@@ -731,12 +811,19 @@ function getHtmlPage(): string {
 
     .result-content {
       display: flex;
+      flex-direction: column;
       justify-content: center;
+      align-items: center;
       gap: 24px;
+      flex: 1;
+      width: 100%;
     }
 
     .result-section {
       text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
     }
 
     .result-label {
@@ -748,12 +835,17 @@ function getHtmlPage(): string {
     }
 
     .qr-image {
-      width: 180px;
-      height: 180px;
+      width: 240px;
+      height: 240px;
       border-radius: var(--radius-md);
       background: #fff;
-      padding: 12px;
+      padding: 16px;
       box-shadow: var(--shadow-md);
+      transition: transform var(--transition);
+    }
+
+    .qr-image:hover {
+      transform: scale(1.05);
     }
 
     /* Buttons */
@@ -762,6 +854,7 @@ function getHtmlPage(): string {
       gap: 12px;
       margin-top: 24px;
       justify-content: center;
+      width: 100%;
     }
 
     .btn {
@@ -853,7 +946,35 @@ function getHtmlPage(): string {
     }
 
     /* Responsive design for preview */
+    @media (max-width: 960px) {
+      .upload-card,
+      .result-card {
+        min-height: auto;
+      }
+
+      .qr-image {
+        width: 200px;
+        height: 200px;
+      }
+    }
+
     @media (max-width: 640px) {
+      .container {
+        padding: 32px 16px;
+      }
+
+      .main-content {
+        gap: 20px;
+      }
+
+      .upload-card {
+        padding: 32px 20px;
+      }
+
+      .result-card {
+        padding: 24px 20px;
+      }
+
       .upload-preview {
         max-height: 300px;
       }
@@ -882,6 +1003,12 @@ function getHtmlPage(): string {
       .upload-card.has-preview {
         padding: 16px;
       }
+
+      .qr-image {
+        width: 180px;
+        height: 180px;
+        padding: 12px;
+      }
     }
 
     /* Ensure preview container doesn't interfere with file input */
@@ -902,50 +1029,58 @@ function getHtmlPage(): string {
       <p class="subtitle" data-i18n="subtitle">Upload an image and generate a shareable QR code instantly</p>
     </header>
 
-    <div class="upload-card" id="uploadCard">
-      <div class="upload-preview-container" id="uploadPreviewContainer">
-        <img class="upload-preview" id="uploadPreview" alt="Preview">
-        <button class="upload-preview-remove" id="previewRemove" title="Remove preview">×</button>
-        <div class="upload-preview-info">
-          <span class="upload-preview-name" id="previewFileName"></span>
-          <span class="upload-preview-size" id="previewFileSize"></span>
+    <div class="main-content">
+      <div class="upload-card" id="uploadCard">
+        <div class="upload-preview-container" id="uploadPreviewContainer">
+          <img class="upload-preview" id="uploadPreview" alt="Preview">
+          <button class="upload-preview-remove" id="previewRemove" title="Remove preview">×</button>
+          <div class="upload-preview-info">
+            <span class="upload-preview-name" id="previewFileName"></span>
+            <span class="upload-preview-size" id="previewFileSize"></span>
+          </div>
+        </div>
+        <div class="upload-content">
+          <span class="upload-icon">📤</span>
+          <h2 class="upload-title" data-i18n="uploadTitle">Click or drag to upload image</h2>
+          <p class="upload-hint" data-i18n="uploadHint">Supports JPG, PNG, GIF, WebP, max 10MB</p>
+          <div class="upload-formats">
+            <span class="format-tag">JPG</span>
+            <span class="format-tag">PNG</span>
+            <span class="format-tag">GIF</span>
+            <span class="format-tag">WebP</span>
+          </div>
+        </div>
+        <input type="file" id="fileInput" accept="image/*">
+        <div class="progress-bar" id="progressBar">
+          <div class="progress-fill" id="progressFill"></div>
         </div>
       </div>
-      <div class="upload-content">
-        <span class="upload-icon">📤</span>
-        <h2 class="upload-title" data-i18n="uploadTitle">Click or drag to upload image</h2>
-        <p class="upload-hint" data-i18n="uploadHint">Supports JPG, PNG, GIF, WebP, max 10MB</p>
-        <div class="upload-formats">
-          <span class="format-tag">JPG</span>
-          <span class="format-tag">PNG</span>
-          <span class="format-tag">GIF</span>
-          <span class="format-tag">WebP</span>
-        </div>
-      </div>
-      <input type="file" id="fileInput" accept="image/*">
-      <div class="progress-bar" id="progressBar">
-        <div class="progress-fill" id="progressFill"></div>
-      </div>
-    </div>
 
-    <div class="result-card" id="resultCard">
-      <div class="result-header">
-        <span class="success-badge">
-          <span>✓</span>
-          <span data-i18n="uploadSuccess">Upload successful</span>
-        </span>
-      </div>
-      <div class="result-content">
-        <div class="result-section">
-          <div class="result-label" data-i18n="qrcode">QR Code</div>
-          <img class="qr-image" id="qrImage" alt="QR Code">
+      <div class="result-card" id="resultCard">
+        <div class="result-placeholder">
+          <div class="placeholder-icon">📱</div>
+          <div>
+            <div class="placeholder-text" data-i18n="placeholderText">上传图片后，二维码将显示在这里</div>
+          </div>
         </div>
-      </div>
-      <div class="btn-group">
-        <button class="btn btn-primary" id="downloadQr">
-          <span>⬇</span>
-          <span data-i18n="downloadQr">Download QR</span>
-        </button>
+        <div class="result-header">
+          <span class="success-badge">
+            <span>✓</span>
+            <span data-i18n="uploadSuccess">Upload successful</span>
+          </span>
+        </div>
+        <div class="result-content">
+          <div class="result-section">
+            <div class="result-label" data-i18n="qrcode">QR Code</div>
+            <img class="qr-image" id="qrImage" alt="QR Code">
+          </div>
+        </div>
+        <div class="btn-group">
+          <button class="btn btn-primary" id="downloadQr">
+            <span>⬇</span>
+            <span data-i18n="downloadQr">Download QR</span>
+          </button>
+        </div>
       </div>
     </div>
 
@@ -990,6 +1125,8 @@ function getHtmlPage(): string {
         copyError: 'Copy failed, please copy manually',
         uploadError: 'Upload failed, please try again',
         qrGenerationFailed: 'QR code generation failed, but image uploaded successfully',
+        placeholderText: 'QR code will appear here',
+        placeholderHint: 'Upload an image to generate QR code',
       },
       zh: {
         title: '图片二维码生成器',
@@ -1009,6 +1146,8 @@ function getHtmlPage(): string {
         copyError: '复制失败，请手动复制',
         uploadError: '上传失败，请重试',
         qrGenerationFailed: '二维码生成失败，但图片已成功上传',
+        placeholderText: '上传图片后，二维码将显示在这里',
+        placeholderHint: 'Upload an image to generate QR code',
       },
       ja: {
         title: '画像QRコード生成',
@@ -1028,6 +1167,8 @@ function getHtmlPage(): string {
         copyError: 'コピーに失敗しました',
         uploadError: 'アップロードに失敗しました',
         qrGenerationFailed: 'QRコードの生成に失敗しましたが、画像のアップロードは成功しました',
+        placeholderText: '画像をアップロードすると、QRコードがここに表示されます',
+        placeholderHint: 'Upload an image to generate QR code',
       },
       ko: {
         title: '이미지 QR코드 생성기',
@@ -1047,6 +1188,8 @@ function getHtmlPage(): string {
         copyError: '복사 실패',
         uploadError: '업로드 실패, 다시 시도해 주세요',
         qrGenerationFailed: 'QR코드 생성 실패, 하지만 이미지 업로드는 성공했습니다',
+        placeholderText: '이미지를 업로드하면 QR코드가 여기에 표시됩니다',
+        placeholderHint: 'Upload an image to generate QR code',
       },
     };
 
@@ -1238,11 +1381,15 @@ function getHtmlPage(): string {
       const uploadPreviewContainer = document.getElementById('uploadPreviewContainer');
       const uploadPreview = document.getElementById('uploadPreview');
       const fileInput = document.getElementById('fileInput');
+      const resultCard = document.getElementById('resultCard');
       
       uploadCard.classList.remove('has-preview');
       uploadPreviewContainer.classList.remove('show');
       uploadPreview.src = '';
       fileInput.value = '';
+      
+      // Reset result card to placeholder state
+      resultCard.classList.remove('has-result');
     }
 
     // Show preview
@@ -1277,7 +1424,7 @@ function getHtmlPage(): string {
 
       // Show progress bar
       progressBar.classList.add('show', 'indeterminate');
-      resultCard.classList.remove('show');
+      resultCard.classList.remove('has-result');
 
       const formData = new FormData();
       formData.append('file', file);
@@ -1306,7 +1453,7 @@ function getHtmlPage(): string {
         }
 
         progressBar.classList.remove('show', 'indeterminate');
-        resultCard.classList.add('show');
+        resultCard.classList.add('has-result');
 
       } catch (error) {
         progressBar.classList.remove('show', 'indeterminate');
