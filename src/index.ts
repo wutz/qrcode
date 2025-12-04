@@ -582,6 +582,17 @@ function getHtmlPage(): string {
       }
     }
 
+    @keyframes qrCodeAppear {
+      from {
+        opacity: 0;
+        transform: translateY(20px) scale(0.9);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
     .upload-preview {
       width: 100%;
       max-height: 450px;
@@ -752,30 +763,67 @@ function getHtmlPage(): string {
       justify-content: center;
       align-items: center;
       min-height: 400px;
-      transition: all var(--transition);
+      /* Hide entire result card when no QR code */
+      opacity: 0;
+      max-height: 0;
+      min-height: 0;
+      padding-top: 0;
+      padding-bottom: 0;
+      margin: 0;
+      overflow: hidden;
+      border-width: 0;
+      transform: scale(0.95);
     }
 
+    /* Show result card with animation when QR code is generated */
     .result-card.has-result {
-      animation: slideUp 0.4s ease;
+      opacity: 1;
+      max-height: 1000px;
+      min-height: 400px;
+      padding-top: 32px;
+      padding-bottom: 32px;
+      margin: 0;
+      border-width: 1px;
+      transform: scale(1);
+      animation: resultCardAppear 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
     }
 
-    /* Placeholder state */
-    .result-card .result-placeholder {
-      display: block;
-      width: 100%;
-      height: 100%;
-      min-height: 320px;
-    }
-
-    .result-card.has-result .result-placeholder {
+    /* Hide result content when no QR code */
+    .result-card:not(.has-result) .result-content {
       display: none;
     }
 
-    .result-card:not(.has-result) .result-content .result-section,
-    .result-card:not(.has-result) .btn-group {
-      display: none;
+    /* Show result content with animation when QR code is generated */
+    .result-card.has-result .result-content {
+      display: flex;
+      animation: qrCodeAppear 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 0.2s both;
     }
 
+    .result-card.has-result .btn-group {
+      display: flex;
+      animation: qrCodeAppear 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.4s both;
+    }
+
+    @keyframes resultCardAppear {
+      from {
+        opacity: 0;
+        max-height: 0;
+        min-height: 0;
+        padding-top: 0;
+        padding-bottom: 0;
+        border-width: 0;
+        transform: translateY(20px) scale(0.95);
+      }
+      to {
+        opacity: 1;
+        max-height: 1000px;
+        min-height: 400px;
+        padding-top: 32px;
+        padding-bottom: 32px;
+        border-width: 1px;
+        transform: translateY(0) scale(1);
+      }
+    }
 
     @keyframes slideUp {
       from {
@@ -927,8 +975,11 @@ function getHtmlPage(): string {
 
     /* Responsive design for preview */
     @media (max-width: 960px) {
-      .upload-card,
-      .result-card {
+      .upload-card {
+        min-height: auto;
+      }
+
+      .result-card.has-result {
         min-height: auto;
       }
 
@@ -951,8 +1002,9 @@ function getHtmlPage(): string {
         padding: 32px 20px;
       }
 
-      .result-card {
+      .result-card.has-result {
         padding: 24px 20px;
+        min-height: auto;
       }
 
       .upload-preview {
@@ -1041,7 +1093,6 @@ function getHtmlPage(): string {
       </div>
 
       <div class="result-card" id="resultCard">
-        <div class="result-placeholder"></div>
         <div class="result-content">
           <div class="result-section">
             <div class="result-label" data-i18n="qrcode">QR Code</div>
