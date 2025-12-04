@@ -614,15 +614,9 @@ function getHtmlPage(): string {
     }
 
     .result-content {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
+      display: flex;
+      justify-content: center;
       gap: 24px;
-    }
-
-    @media (max-width: 560px) {
-      .result-content {
-        grid-template-columns: 1fr;
-      }
     }
 
     .result-section {
@@ -637,14 +631,6 @@ function getHtmlPage(): string {
       letter-spacing: 0.05em;
     }
 
-    .preview-image {
-      width: 100%;
-      max-width: 200px;
-      height: auto;
-      border-radius: var(--radius-md);
-      box-shadow: var(--shadow-md);
-    }
-
     .qr-image {
       width: 180px;
       height: 180px;
@@ -652,30 +638,6 @@ function getHtmlPage(): string {
       background: #fff;
       padding: 12px;
       box-shadow: var(--shadow-md);
-    }
-
-    /* URL display */
-    .url-display {
-      margin-top: 24px;
-      padding: 16px;
-      background: var(--bg-tertiary);
-      border-radius: var(--radius-md);
-    }
-
-    .url-label {
-      font-size: 12px;
-      color: var(--text-muted);
-      margin-bottom: 8px;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-
-    .url-text {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 13px;
-      color: var(--text-secondary);
-      word-break: break-all;
-      line-height: 1.5;
     }
 
     /* Buttons */
@@ -808,26 +770,14 @@ function getHtmlPage(): string {
       </div>
       <div class="result-content">
         <div class="result-section">
-          <div class="result-label" data-i18n="preview">Preview</div>
-          <img class="preview-image" id="previewImage" alt="Preview">
-        </div>
-        <div class="result-section">
           <div class="result-label" data-i18n="qrcode">QR Code</div>
           <img class="qr-image" id="qrImage" alt="QR Code">
         </div>
-      </div>
-      <div class="url-display">
-        <div class="url-label" data-i18n="imageUrl">Image URL</div>
-        <div class="url-text" id="imageUrl"></div>
       </div>
       <div class="btn-group">
         <button class="btn btn-primary" id="downloadQr">
           <span>⬇</span>
           <span data-i18n="downloadQr">Download QR</span>
-        </button>
-        <button class="btn btn-secondary" id="copyUrl">
-          <span>📋</span>
-          <span data-i18n="copyUrl">Copy URL</span>
         </button>
         <button class="btn btn-secondary" id="uploadAnother">
           <span>🔄</span>
@@ -1049,7 +999,6 @@ function getHtmlPage(): string {
       const themeToggle = document.getElementById('themeToggle');
       const langSelect = document.getElementById('langSelect');
       const downloadQr = document.getElementById('downloadQr');
-      const copyUrl = document.getElementById('copyUrl');
       const uploadAnother = document.getElementById('uploadAnother');
 
       // Theme toggle
@@ -1104,17 +1053,6 @@ function getHtmlPage(): string {
         link.click();
       });
 
-      // Copy link
-      copyUrl.addEventListener('click', async () => {
-        const url = document.getElementById('imageUrl').textContent;
-        try {
-          await navigator.clipboard.writeText(url);
-          showToast(i18n[currentLang].copySuccess);
-        } catch {
-          showToast(i18n[currentLang].copyError, true);
-        }
-      });
-
       // Upload another
       uploadAnother.addEventListener('click', () => {
         document.getElementById('resultCard').classList.remove('show');
@@ -1147,7 +1085,6 @@ function getHtmlPage(): string {
         }
 
         // Show result
-        document.getElementById('previewImage').src = data.imageUrl;
         if (data.qrCode) {
           document.getElementById('qrImage').src = data.qrCode;
         } else {
@@ -1157,7 +1094,6 @@ function getHtmlPage(): string {
           // Show warning toast that QR generation failed but upload succeeded
           showToast(i18n[currentLang].qrGenerationFailed, false);
         }
-        document.getElementById('imageUrl').textContent = data.imageUrl;
 
         progressBar.classList.remove('show', 'indeterminate');
         resultCard.classList.add('show');
