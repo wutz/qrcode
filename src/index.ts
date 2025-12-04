@@ -526,9 +526,44 @@ function getHtmlPage(): string {
       background: var(--bg-secondary);
     }
 
+    /* Upload status border colors */
+    .upload-card.uploading {
+      border-color: #3b82f6;
+      border-style: solid;
+      animation: borderPulse 2s ease-in-out infinite;
+    }
+
+    [data-theme="dark"] .upload-card.uploading {
+      border-color: #60a5fa;
+      animation: borderPulseDark 2s ease-in-out infinite;
+    }
+
     .upload-card.upload-success {
       border-color: var(--success);
-      background: rgba(74, 157, 91, 0.05);
+      border-style: solid;
+    }
+
+    .upload-card.upload-error {
+      border-color: var(--error);
+      border-style: solid;
+    }
+
+    @keyframes borderPulse {
+      0%, 100% {
+        border-color: #3b82f6;
+      }
+      50% {
+        border-color: #60a5fa;
+      }
+    }
+
+    @keyframes borderPulseDark {
+      0%, 100% {
+        border-color: #60a5fa;
+      }
+      50% {
+        border-color: #93c5fd;
+      }
     }
 
     .upload-preview-container {
@@ -540,30 +575,6 @@ function getHtmlPage(): string {
       background: var(--bg-tertiary);
       box-shadow: var(--shadow-md);
       border: 1px solid var(--border);
-    }
-
-    .upload-success-badge {
-      position: absolute;
-      top: 12px;
-      left: 12px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 6px 12px;
-      background: rgba(74, 157, 91, 0.95);
-      border-radius: var(--radius-sm);
-      color: #fff;
-      font-size: 13px;
-      font-weight: 500;
-      z-index: 10;
-      opacity: 0;
-      transition: opacity var(--transition);
-      pointer-events: none;
-    }
-
-    .upload-preview-container.show .upload-success-badge {
-      opacity: 1;
-      animation: fadeInSlide 0.4s ease;
     }
 
     @keyframes fadeInSlide {
@@ -1075,10 +1086,6 @@ function getHtmlPage(): string {
     <div class="main-content">
       <div class="upload-card" id="uploadCard">
         <div class="upload-preview-container" id="uploadPreviewContainer">
-          <div class="upload-success-badge" id="uploadSuccessBadge">
-            <span>✓</span>
-            <span data-i18n="uploadSuccess">Upload successful</span>
-          </div>
           <img class="upload-preview" id="uploadPreview" alt="Preview">
           <button class="upload-preview-remove" id="previewRemove" title="Remove preview">×</button>
           <div class="upload-preview-info">
@@ -1487,15 +1494,11 @@ function getHtmlPage(): string {
       const uploadPreview = document.getElementById('uploadPreview');
       const fileInput = document.getElementById('fileInput');
       const resultCard = document.getElementById('resultCard');
-      const uploadSuccessBadge = document.getElementById('uploadSuccessBadge');
       
-      uploadCard.classList.remove('has-preview', 'upload-success');
+      uploadCard.classList.remove('has-preview', 'upload-success', 'upload-error', 'uploading');
       uploadPreviewContainer.classList.remove('show');
       uploadPreview.src = '';
       fileInput.value = '';
-      if (uploadSuccessBadge) {
-        uploadSuccessBadge.style.display = 'none';
-      }
       
       // Reset file name info
       currentFileName = null;
@@ -1538,12 +1541,17 @@ function getHtmlPage(): string {
     async function handleFile(file) {
       const progressBar = document.getElementById('progressBar');
       const resultCard = document.getElementById('resultCard');
+      const uploadCard = document.getElementById('uploadCard');
 
       // Save original file name
       currentOriginalFileName = file.name;
 
       // Show preview immediately
       showPreview(file);
+
+      // Set uploading state
+      uploadCard.classList.remove('upload-success', 'upload-error');
+      uploadCard.classList.add('uploading');
 
       // Show progress bar
       progressBar.classList.add('show', 'indeterminate');
@@ -1578,18 +1586,18 @@ function getHtmlPage(): string {
           showToast(i18n[currentLang].qrGenerationFailed, false);
         }
 
-        // Show success badge in upload area
-        const uploadCard = document.getElementById('uploadCard');
+        // Set upload success state
+        uploadCard.classList.remove('uploading', 'upload-error');
         uploadCard.classList.add('upload-success');
-        const uploadSuccessBadge = document.getElementById('uploadSuccessBadge');
-        if (uploadSuccessBadge) {
-          uploadSuccessBadge.style.display = 'flex';
-        }
 
         progressBar.classList.remove('show', 'indeterminate');
         resultCard.classList.add('has-result');
 
       } catch (error) {
+        // Set upload error state
+        uploadCard.classList.remove('uploading', 'upload-success');
+        uploadCard.classList.add('upload-error');
+
         progressBar.classList.remove('show', 'indeterminate');
         showToast(error.message || i18n[currentLang].uploadError, true);
       }
