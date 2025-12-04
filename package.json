@@ -10,7 +10,7 @@
     },
     "dependencies": {
         "hono": "^4.6.0",
-        "qrcode": "^1.5.4"
+        "qrcode-svg": "^1.1.0"
     },
     "devDependencies": {
         "@cloudflare/workers-types": "^4.20241127.0",

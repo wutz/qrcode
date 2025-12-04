@@ -1,12 +1,70 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import QRCode from 'qrcode';
+import QRCode from 'qrcode-svg';
 
 type Bindings = {
   R2_BUCKET: R2Bucket;
 };
 
 const app = new Hono<{ Bindings: Bindings }>();
+
+// Helper function to generate QR code with better error handling
+function generateQRCode(text: string, options?: any): string {
+  try {
+    // Validate input
+    if (!text || typeof text !== 'string' || text.length === 0) {
+      throw new Error('Invalid text for QR code generation');
+    }
+
+    // Create QR code instance
+    const qr = new QRCode({
+      content: text,
+      width: options?.width || 300,
+      padding: options?.margin !== undefined ? options.margin * 4 : 8,
+      color: options?.color?.dark || '#000000',
+      background: options?.color?.light || '#ffffff',
+      ecl: options?.errorCorrectionLevel || 'M', // Error correction level: L, M, H, Q
+    });
+
+    // Generate SVG string
+    const svg = qr.svg();
+
+    if (!svg || typeof svg !== 'string') {
+      throw new Error('QR code generation returned invalid SVG');
+    }
+
+    // Convert SVG to Data URL
+    // Use URL encoding for SVG (more compatible than base64 in some environments)
+    // Alternatively, we can use base64 if available
+    let dataUrl: string;
+
+    try {
+      // Try base64 encoding first (works in most modern environments including Workers)
+      if (typeof btoa !== 'undefined') {
+        // Use URL encoding to handle UTF-8 characters properly
+        const encoded = encodeURIComponent(svg);
+        const base64 = btoa(unescape(encoded));
+        dataUrl = `data:image/svg+xml;base64,${base64}`;
+      } else {
+        // Fallback to URL-encoded SVG (works everywhere)
+        dataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+      }
+    } catch (e) {
+      // Fallback to URL-encoded SVG if base64 fails
+      dataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+    }
+
+    return dataUrl;
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('QR Code generation failed:', {
+      error: errorMessage,
+      text: text.substring(0, 100), // Log first 100 chars of text
+      stack: error instanceof Error ? error.stack : undefined,
+    });
+    throw error;
+  }
+}
 
 // CORS middleware
 app.use('*', cors());
@@ -89,7 +147,7 @@ app.post('/api/upload', async (c) => {
         throw new Error(`Invalid URL format: ${publicUrl}`);
       }
 
-      qrCodeDataUrl = await QRCode.toDataURL(publicUrl, {
+      qrCodeDataUrl = generateQRCode(publicUrl, {
         width: 300,
         margin: 2,
         color: {
@@ -114,6 +172,7 @@ app.post('/api/upload', async (c) => {
         fileName: fileName,
       });
       // Continue even if QR code generation fails - file upload was successful
+      // But we'll include error info in response for debugging
     }
 
     return c.json({
@@ -121,6 +180,7 @@ app.post('/api/upload', async (c) => {
       imageUrl: publicUrl,
       qrCode: qrCodeDataUrl,
       fileName: fileName,
+      qrCodeGenerated: qrCodeDataUrl !== null,
     });
   } catch (error) {
     console.error('Upload error:', error);
@@ -167,7 +227,7 @@ app.post('/api/qrcode', async (c) => {
       return c.json({ error: 'Invalid URL format' }, 400);
     }
 
-    const qrCodeDataUrl = await QRCode.toDataURL(url, {
+    const qrCodeDataUrl = generateQRCode(url, {
       width: size,
       margin: 2,
       color: {
