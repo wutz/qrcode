@@ -371,6 +371,17 @@ function getHtmlPage(): string {
       margin-top: 32px;
     }
 
+    /* When result card is hidden, center the upload area */
+    .main-content:has(.result-card:not(.has-result)) {
+      grid-template-columns: 1fr;
+      justify-items: center;
+    }
+
+    .main-content:has(.result-card:not(.has-result)) .upload-card {
+      max-width: 600px;
+      width: 100%;
+    }
+
     @media (max-width: 960px) {
       .main-content {
         grid-template-columns: 1fr;
